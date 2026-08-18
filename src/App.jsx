@@ -12,6 +12,8 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { unzipSync } from 'fflate';
+import DonateButton from './components/DonateButton';
+
 
 const getMMDLoaderClass = async () => {
   if (window.MMDLoader) return window.MMDLoader;
@@ -643,6 +645,16 @@ export default function App() {
             <button className={`tab-btn ${activeTab === 'style' ? 'active' : ''}`} onClick={() => setActiveTab('style')}>🎨 Toon</button>
             <button className={`tab-btn ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>✏️ VRMA</button>
           </div>
+
+
+          
+           <div className="top-bar-buttons">
+            
+             <button>Guardar en App</button>
+             <DonateButton />
+           </div>
+          
+          
 
           {activeTab === 'posing' && (
             <PosingPanel
