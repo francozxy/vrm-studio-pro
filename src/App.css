@@ -1,0 +1,138 @@
+#app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Modo Horizontal por defecto (PC / Móvil apaisado) */
+#sidebar {
+  width: 280px;
+  min-width: 260px;
+  height: 100%;
+  background-color: #16161e;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-right: 1px solid #2ac3de22;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+#viewport-container {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  background: radial-gradient(circle at center, #24283b 0%, #1a1b26 100%);
+  overflow: hidden;
+}
+
+#viewport-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+h1 {
+  font-size: 0.9rem;
+  color: #7aa2f7;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  border-bottom: 2px solid #7aa2f7;
+  padding-bottom: 4px;
+}
+
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  background: #1a1b26;
+  padding: 2px;
+  border-radius: 6px;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 5px 1px;
+  font-size: 0.6rem;
+  font-weight: bold;
+  background: transparent;
+  color: #7aa2f7;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.tab-btn.active {
+  background-color: #7aa2f7;
+  color: #15161e;
+}
+
+.section-box {
+  background-color: #24283b;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid #414868;
+}
+
+.section-title {
+  font-size: 0.75rem;
+  font-weight: bold;
+  color: #bb9af7;
+  margin-bottom: 4px;
+}
+
+label {
+  display: block;
+  font-size: 0.65rem;
+  margin-top: 4px;
+  color: #9aa5ce;
+}
+
+input[type="file"], select, input[type="text"] {
+  width: 100%;
+  padding: 4px;
+  background-color: #1a1b26;
+  border: 1px solid #414868;
+  border-radius: 4px;
+  color: #c0caf5;
+  font-size: 0.7rem;
+}
+
+button {
+  width: 100%;
+  padding: 6px;
+  background-color: #7aa2f7;
+  color: #15161e;
+  font-weight: bold;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.7rem;
+  margin-top: 4px;
+}
+
+button.secondary {
+  background-color: #bb9af7;
+}
+
+/* Modo Vertical (Móvil en vertical) */
+@media (max-width: 600px) and (orientation: portrait) {
+  #app-container {
+    flex-direction: column;
+  }
+
+  #sidebar {
+    width: 100%;
+    min-width: 100%;
+    height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid #2ac3de22;
+  }
+
+  #viewport-container {
+    width: 100%;
+    height: 60vh;
+  }
+}

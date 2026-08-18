@@ -1,0 +1,838 @@
+[
+  {
+    "name": "POSE_001",
+    "url": "/poses/pose_001.vrma"
+  },
+  {
+    "name": "POSE_002",
+    "url": "/poses/pose_002.vrma"
+  },
+  {
+    "name": "POSE_003",
+    "url": "/poses/pose_003.vrma"
+  },
+  {
+    "name": "POSE_004",
+    "url": "/poses/pose_004.vrma"
+  },
+  {
+    "name": "POSE_005",
+    "url": "/poses/pose_005.vrma"
+  },
+  {
+    "name": "POSE_006",
+    "url": "/poses/pose_006.vrma"
+  },
+  {
+    "name": "POSE_007",
+    "url": "/poses/pose_007.vrma"
+  },
+  {
+    "name": "POSE_008",
+    "url": "/poses/pose_008.vrma"
+  },
+  {
+    "name": "POSE_009",
+    "url": "/poses/pose_009.vrma"
+  },
+  {
+    "name": "POSE_010",
+    "url": "/poses/pose_010.vrma"
+  },
+  {
+    "name": "POSE_011",
+    "url": "/poses/pose_011.vrma"
+  },
+  {
+    "name": "POSE_012",
+    "url": "/poses/pose_012.vrma"
+  },
+  {
+    "name": "POSE_013",
+    "url": "/poses/pose_013.vrma"
+  },
+  {
+    "name": "POSE_014",
+    "url": "/poses/pose_014.vrma"
+  },
+  {
+    "name": "POSE_015",
+    "url": "/poses/pose_015.vrma"
+  },
+  {
+    "name": "POSE_016",
+    "url": "/poses/pose_016.vrma"
+  },
+  {
+    "name": "POSE_017",
+    "url": "/poses/pose_017.vrma"
+  },
+  {
+    "name": "POSE_018",
+    "url": "/poses/pose_018.vrma"
+  },
+  {
+    "name": "POSE_019",
+    "url": "/poses/pose_019.vrma"
+  },
+  {
+    "name": "POSE_020",
+    "url": "/poses/pose_020.vrma"
+  },
+  {
+    "name": "POSE_021",
+    "url": "/poses/pose_021.vrma"
+  },
+  {
+    "name": "POSE_022",
+    "url": "/poses/pose_022.vrma"
+  },
+  {
+    "name": "POSE_023",
+    "url": "/poses/pose_023.vrma"
+  },
+  {
+    "name": "POSE_024",
+    "url": "/poses/pose_024.vrma"
+  },
+  {
+    "name": "POSE_025",
+    "url": "/poses/pose_025.vrma"
+  },
+  {
+    "name": "POSE_026",
+    "url": "/poses/pose_026.vrma"
+  },
+  {
+    "name": "POSE_027",
+    "url": "/poses/pose_027.vrma"
+  },
+  {
+    "name": "POSE_028",
+    "url": "/poses/pose_028.vrma"
+  },
+  {
+    "name": "POSE_029",
+    "url": "/poses/pose_029.vrma"
+  },
+  {
+    "name": "POSE_030",
+    "url": "/poses/pose_030.vrma"
+  },
+  {
+    "name": "POSE_031",
+    "url": "/poses/pose_031.vrma"
+  },
+  {
+    "name": "POSE_032",
+    "url": "/poses/pose_032.vrma"
+  },
+  {
+    "name": "POSE_033",
+    "url": "/poses/pose_033.vrma"
+  },
+  {
+    "name": "POSE_034",
+    "url": "/poses/pose_034.vrma"
+  },
+  {
+    "name": "POSE_035",
+    "url": "/poses/pose_035.vrma"
+  },
+  {
+    "name": "POSE_036",
+    "url": "/poses/pose_036.vrma"
+  },
+  {
+    "name": "POSE_037",
+    "url": "/poses/pose_037.vrma"
+  },
+  {
+    "name": "POSE_038",
+    "url": "/poses/pose_038.vrma"
+  },
+  {
+    "name": "POSE_039",
+    "url": "/poses/pose_039.vrma"
+  },
+  {
+    "name": "POSE_040",
+    "url": "/poses/pose_040.vrma"
+  },
+  {
+    "name": "POSE_041",
+    "url": "/poses/pose_041.vrma"
+  },
+  {
+    "name": "POSE_042",
+    "url": "/poses/pose_042.vrma"
+  },
+  {
+    "name": "POSE_043",
+    "url": "/poses/pose_043.vrma"
+  },
+  {
+    "name": "POSE_044",
+    "url": "/poses/pose_044.vrma"
+  },
+  {
+    "name": "POSE_045",
+    "url": "/poses/pose_045.vrma"
+  },
+  {
+    "name": "POSE_046",
+    "url": "/poses/pose_046.vrma"
+  },
+  {
+    "name": "POSE_047",
+    "url": "/poses/pose_047.vrma"
+  },
+  {
+    "name": "POSE_048",
+    "url": "/poses/pose_048.vrma"
+  },
+  {
+    "name": "POSE_049",
+    "url": "/poses/pose_049.vrma"
+  },
+  {
+    "name": "POSE_050",
+    "url": "/poses/pose_050.vrma"
+  },
+  {
+    "name": "POSE_051",
+    "url": "/poses/pose_051.vrma"
+  },
+  {
+    "name": "POSE_052",
+    "url": "/poses/pose_052.vrma"
+  },
+  {
+    "name": "POSE_053",
+    "url": "/poses/pose_053.vrma"
+  },
+  {
+    "name": "POSE_054",
+    "url": "/poses/pose_054.vrma"
+  },
+  {
+    "name": "POSE_055",
+    "url": "/poses/pose_055.vrma"
+  },
+  {
+    "name": "POSE_056",
+    "url": "/poses/pose_056.vrma"
+  },
+  {
+    "name": "POSE_057",
+    "url": "/poses/pose_057.vrma"
+  },
+  {
+    "name": "POSE_058",
+    "url": "/poses/pose_058.vrma"
+  },
+  {
+    "name": "POSE_059",
+    "url": "/poses/pose_059.vrma"
+  },
+  {
+    "name": "POSE_060",
+    "url": "/poses/pose_060.vrma"
+  },
+  {
+    "name": "POSE_061",
+    "url": "/poses/pose_061.vrma"
+  },
+  {
+    "name": "POSE_062",
+    "url": "/poses/pose_062.vrma"
+  },
+  {
+    "name": "POSE_063",
+    "url": "/poses/pose_063.vrma"
+  },
+  {
+    "name": "POSE_064",
+    "url": "/poses/pose_064.vrma"
+  },
+  {
+    "name": "POSE_065",
+    "url": "/poses/pose_065.vrma"
+  },
+  {
+    "name": "POSE_066",
+    "url": "/poses/pose_066.vrma"
+  },
+  {
+    "name": "POSE_067",
+    "url": "/poses/pose_067.vrma"
+  },
+  {
+    "name": "POSE_068",
+    "url": "/poses/pose_068.vrma"
+  },
+  {
+    "name": "POSE_069",
+    "url": "/poses/pose_069.vrma"
+  },
+  {
+    "name": "POSE_070",
+    "url": "/poses/pose_070.vrma"
+  },
+  {
+    "name": "POSE_071",
+    "url": "/poses/pose_071.vrma"
+  },
+  {
+    "name": "POSE_072",
+    "url": "/poses/pose_072.vrma"
+  },
+  {
+    "name": "POSE_073",
+    "url": "/poses/pose_073.vrma"
+  },
+  {
+    "name": "POSE_074",
+    "url": "/poses/pose_074.vrma"
+  },
+  {
+    "name": "POSE_075",
+    "url": "/poses/pose_075.vrma"
+  },
+  {
+    "name": "POSE_076",
+    "url": "/poses/pose_076.vrma"
+  },
+  {
+    "name": "POSE_077",
+    "url": "/poses/pose_077.vrma"
+  },
+  {
+    "name": "POSE_078",
+    "url": "/poses/pose_078.vrma"
+  },
+  {
+    "name": "POSE_079",
+    "url": "/poses/pose_079.vrma"
+  },
+  {
+    "name": "POSE_080",
+    "url": "/poses/pose_080.vrma"
+  },
+  {
+    "name": "POSE_081",
+    "url": "/poses/pose_081.vrma"
+  },
+  {
+    "name": "POSE_082",
+    "url": "/poses/pose_082.vrma"
+  },
+  {
+    "name": "POSE_083",
+    "url": "/poses/pose_083.vrma"
+  },
+  {
+    "name": "POSE_084",
+    "url": "/poses/pose_084.vrma"
+  },
+  {
+    "name": "POSE_085",
+    "url": "/poses/pose_085.vrma"
+  },
+  {
+    "name": "POSE_086",
+    "url": "/poses/pose_086.vrma"
+  },
+  {
+    "name": "POSE_087",
+    "url": "/poses/pose_087.vrma"
+  },
+  {
+    "name": "POSE_088",
+    "url": "/poses/pose_088.vrma"
+  },
+  {
+    "name": "POSE_089",
+    "url": "/poses/pose_089.vrma"
+  },
+  {
+    "name": "POSE_090",
+    "url": "/poses/pose_090.vrma"
+  },
+  {
+    "name": "POSE_091",
+    "url": "/poses/pose_091.vrma"
+  },
+  {
+    "name": "POSE_092",
+    "url": "/poses/pose_092.vrma"
+  },
+  {
+    "name": "POSE_093",
+    "url": "/poses/pose_093.vrma"
+  },
+  {
+    "name": "POSE_094",
+    "url": "/poses/pose_094.vrma"
+  },
+  {
+    "name": "POSE_095",
+    "url": "/poses/pose_095.vrma"
+  },
+  {
+    "name": "POSE_096",
+    "url": "/poses/pose_096.vrma"
+  },
+  {
+    "name": "POSE_097",
+    "url": "/poses/pose_097.vrma"
+  },
+  {
+    "name": "POSE_098",
+    "url": "/poses/pose_098.vrma"
+  },
+  {
+    "name": "POSE_099",
+    "url": "/poses/pose_099.vrma"
+  },
+  {
+    "name": "POSE_100",
+    "url": "/poses/pose_100.vrma"
+  },
+  {
+    "name": "POSE_101",
+    "url": "/poses/pose_101.vrma"
+  },
+  {
+    "name": "POSE_102",
+    "url": "/poses/pose_102.vrma"
+  },
+  {
+    "name": "POSE_103",
+    "url": "/poses/pose_103.vrma"
+  },
+  {
+    "name": "POSE_104",
+    "url": "/poses/pose_104.vrma"
+  },
+  {
+    "name": "POSE_105",
+    "url": "/poses/pose_105.vrma"
+  },
+  {
+    "name": "POSE_106",
+    "url": "/poses/pose_106.vrma"
+  },
+  {
+    "name": "POSE_107",
+    "url": "/poses/pose_107.vrma"
+  },
+  {
+    "name": "POSE_108",
+    "url": "/poses/pose_108.vrma"
+  },
+  {
+    "name": "POSE_109",
+    "url": "/poses/pose_109.vrma"
+  },
+  {
+    "name": "POSE_110",
+    "url": "/poses/pose_110.vrma"
+  },
+  {
+    "name": "POSE_111",
+    "url": "/poses/pose_111.vrma"
+  },
+  {
+    "name": "POSE_112",
+    "url": "/poses/pose_112.vrma"
+  },
+  {
+    "name": "POSE_113",
+    "url": "/poses/pose_113.vrma"
+  },
+  {
+    "name": "POSE_114",
+    "url": "/poses/pose_114.vrma"
+  },
+  {
+    "name": "POSE_115",
+    "url": "/poses/pose_115.vrma"
+  },
+  {
+    "name": "POSE_116",
+    "url": "/poses/pose_116.vrma"
+  },
+  {
+    "name": "POSE_117",
+    "url": "/poses/pose_117.vrma"
+  },
+  {
+    "name": "POSE_118",
+    "url": "/poses/pose_118.vrma"
+  },
+  {
+    "name": "POSE_119",
+    "url": "/poses/pose_119.vrma"
+  },
+  {
+    "name": "POSE_120",
+    "url": "/poses/pose_120.vrma"
+  },
+  {
+    "name": "POSE_121",
+    "url": "/poses/pose_121.vrma"
+  },
+  {
+    "name": "POSE_122",
+    "url": "/poses/pose_122.vrma"
+  },
+  {
+    "name": "POSE_123",
+    "url": "/poses/pose_123.vrma"
+  },
+  {
+    "name": "POSE_124",
+    "url": "/poses/pose_124.vrma"
+  },
+  {
+    "name": "POSE_125",
+    "url": "/poses/pose_125.vrma"
+  },
+  {
+    "name": "POSE_126",
+    "url": "/poses/pose_126.vrma"
+  },
+  {
+    "name": "POSE_127",
+    "url": "/poses/pose_127.vrma"
+  },
+  {
+    "name": "POSE_128",
+    "url": "/poses/pose_128.vrma"
+  },
+  {
+    "name": "POSE_129",
+    "url": "/poses/pose_129.vrma"
+  },
+  {
+    "name": "POSE_130",
+    "url": "/poses/pose_130.vrma"
+  },
+  {
+    "name": "POSE_131",
+    "url": "/poses/pose_131.vrma"
+  },
+  {
+    "name": "POSE_132",
+    "url": "/poses/pose_132.vrma"
+  },
+  {
+    "name": "POSE_133",
+    "url": "/poses/pose_133.vrma"
+  },
+  {
+    "name": "POSE_134",
+    "url": "/poses/pose_134.vrma"
+  },
+  {
+    "name": "POSE_135",
+    "url": "/poses/pose_135.vrma"
+  },
+  {
+    "name": "POSE_136",
+    "url": "/poses/pose_136.vrma"
+  },
+  {
+    "name": "POSE_137",
+    "url": "/poses/pose_137.vrma"
+  },
+  {
+    "name": "POSE_138",
+    "url": "/poses/pose_138.vrma"
+  },
+  {
+    "name": "POSE_139",
+    "url": "/poses/pose_139.vrma"
+  },
+  {
+    "name": "POSE_140",
+    "url": "/poses/pose_140.vrma"
+  },
+  {
+    "name": "POSE_141",
+    "url": "/poses/pose_141.vrma"
+  },
+  {
+    "name": "POSE_142",
+    "url": "/poses/pose_142.vrma"
+  },
+  {
+    "name": "POSE_143",
+    "url": "/poses/pose_143.vrma"
+  },
+  {
+    "name": "POSE_144",
+    "url": "/poses/pose_144.vrma"
+  },
+  {
+    "name": "POSE_145",
+    "url": "/poses/pose_145.vrma"
+  },
+  {
+    "name": "POSE_146",
+    "url": "/poses/pose_146.vrma"
+  },
+  {
+    "name": "POSE_147",
+    "url": "/poses/pose_147.vrma"
+  },
+  {
+    "name": "POSE_148",
+    "url": "/poses/pose_148.vrma"
+  },
+  {
+    "name": "POSE_149",
+    "url": "/poses/pose_149.vrma"
+  },
+  {
+    "name": "POSE_150",
+    "url": "/poses/pose_150.vrma"
+  },
+  {
+    "name": "POSE_151",
+    "url": "/poses/pose_151.vrma"
+  },
+  {
+    "name": "POSE_152",
+    "url": "/poses/pose_152.vrma"
+  },
+  {
+    "name": "POSE_153",
+    "url": "/poses/pose_153.vrma"
+  },
+  {
+    "name": "POSE_154",
+    "url": "/poses/pose_154.vrma"
+  },
+  {
+    "name": "POSE_155",
+    "url": "/poses/pose_155.vrma"
+  },
+  {
+    "name": "POSE_156",
+    "url": "/poses/pose_156.vrma"
+  },
+  {
+    "name": "POSE_157",
+    "url": "/poses/pose_157.vrma"
+  },
+  {
+    "name": "POSE_158",
+    "url": "/poses/pose_158.vrma"
+  },
+  {
+    "name": "POSE_159",
+    "url": "/poses/pose_159.vrma"
+  },
+  {
+    "name": "POSE_160",
+    "url": "/poses/pose_160.vrma"
+  },
+  {
+    "name": "POSE_161",
+    "url": "/poses/pose_161.vrma"
+  },
+  {
+    "name": "POSE_162",
+    "url": "/poses/pose_162.vrma"
+  },
+  {
+    "name": "POSE_163",
+    "url": "/poses/pose_163.vrma"
+  },
+  {
+    "name": "POSE_164",
+    "url": "/poses/pose_164.vrma"
+  },
+  {
+    "name": "POSE_165",
+    "url": "/poses/pose_165.vrma"
+  },
+  {
+    "name": "POSE_166",
+    "url": "/poses/pose_166.vrma"
+  },
+  {
+    "name": "POSE_167",
+    "url": "/poses/pose_167.vrma"
+  },
+  {
+    "name": "POSE_168",
+    "url": "/poses/pose_168.vrma"
+  },
+  {
+    "name": "POSE_169",
+    "url": "/poses/pose_169.vrma"
+  },
+  {
+    "name": "POSE_170",
+    "url": "/poses/pose_170.vrma"
+  },
+  {
+    "name": "POSE_171",
+    "url": "/poses/pose_171.vrma"
+  },
+  {
+    "name": "POSE_172",
+    "url": "/poses/pose_172.vrma"
+  },
+  {
+    "name": "POSE_173",
+    "url": "/poses/pose_173.vrma"
+  },
+  {
+    "name": "POSE_174",
+    "url": "/poses/pose_174.vrma"
+  },
+  {
+    "name": "POSE_175",
+    "url": "/poses/pose_175.vrma"
+  },
+  {
+    "name": "POSE_176",
+    "url": "/poses/pose_176.vrma"
+  },
+  {
+    "name": "POSE_177",
+    "url": "/poses/pose_177.vrma"
+  },
+  {
+    "name": "POSE_178",
+    "url": "/poses/pose_178.vrma"
+  },
+  {
+    "name": "POSE_179",
+    "url": "/poses/pose_179.vrma"
+  },
+  {
+    "name": "POSE_180",
+    "url": "/poses/pose_180.vrma"
+  },
+  {
+    "name": "POSE_181",
+    "url": "/poses/pose_181.vrma"
+  },
+  {
+    "name": "POSE_182",
+    "url": "/poses/pose_182.vrma"
+  },
+  {
+    "name": "POSE_183",
+    "url": "/poses/pose_183.vrma"
+  },
+  {
+    "name": "POSE_184",
+    "url": "/poses/pose_184.vrma"
+  },
+  {
+    "name": "POSE_185",
+    "url": "/poses/pose_185.vrma"
+  },
+  {
+    "name": "POSE_186",
+    "url": "/poses/pose_186.vrma"
+  },
+  {
+    "name": "POSE_187",
+    "url": "/poses/pose_187.vrma"
+  },
+  {
+    "name": "POSE_188",
+    "url": "/poses/pose_188.vrma"
+  },
+  {
+    "name": "POSE_189",
+    "url": "/poses/pose_189.vrma"
+  },
+  {
+    "name": "POSE_190",
+    "url": "/poses/pose_190.vrma"
+  },
+  {
+    "name": "POSE_191",
+    "url": "/poses/pose_191.vrma"
+  },
+  {
+    "name": "POSE_192",
+    "url": "/poses/pose_192.vrma"
+  },
+  {
+    "name": "POSE_193",
+    "url": "/poses/pose_193.vrma"
+  },
+  {
+    "name": "POSE_194",
+    "url": "/poses/pose_194.vrma"
+  },
+  {
+    "name": "POSE_195",
+    "url": "/poses/pose_195.vrma"
+  },
+  {
+    "name": "POSE_196",
+    "url": "/poses/pose_196.vrma"
+  },
+  {
+    "name": "POSE_197",
+    "url": "/poses/pose_197.vrma"
+  },
+  {
+    "name": "POSE_198",
+    "url": "/poses/pose_198.vrma"
+  },
+  {
+    "name": "POSE_199",
+    "url": "/poses/pose_199.vrma"
+  },
+  {
+    "name": "POSE_200",
+    "url": "/poses/pose_200.vrma"
+  },
+  {
+    "name": "POSE_201",
+    "url": "/poses/pose_201.vrma"
+  },
+  {
+    "name": "POSE_202",
+    "url": "/poses/pose_202.vrma"
+  },
+  {
+    "name": "POSE_203",
+    "url": "/poses/pose_203.vrma"
+  },
+  {
+    "name": "POSE_204",
+    "url": "/poses/pose_204.vrma"
+  },
+  {
+    "name": "POSE_205",
+    "url": "/poses/pose_205.vrma"
+  },
+  {
+    "name": "POSE_206",
+    "url": "/poses/pose_206.vrma"
+  },
+  {
+    "name": "POSE_207",
+    "url": "/poses/pose_207.vrma"
+  },
+  {
+    "name": "POSE_208",
+    "url": "/poses/pose_208.vrma"
+  },
+  {
+    "name": "POSE_209",
+    "url": "/poses/pose_209.vrma"
+  }
+]
