@@ -1,6 +1,6 @@
 
 
-metaspara mk 
+metas para mi proyecto 
 PROYECTO DE VRM 
 
 1)proposito
@@ -13,7 +13,7 @@ crear animaciones tamto como vrm y objetos
 
 4 jugar con gran variedad de angulos de camara pregrabado 
 
-5 incoporar npmc  programados
+5 incoporar npc  programados
 
 6 integrar tensorflow para facilitar la creacion de poses 
 

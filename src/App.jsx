@@ -13,6 +13,7 @@ import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { unzipSync } from 'fflate';
 import DonateButton from './components/DonateButton';
+import FullscreenButton from './components/FullscreenButton';
 
 
 const getMMDLoaderClass = async () => {
@@ -607,6 +608,10 @@ export default function App() {
 
   return (
     <div id="app-container" style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
+
+
+      <FullscreenButton />
+
       <button
         onClick={() => setIsUiVisible(!isUiVisible)}
         style={{
