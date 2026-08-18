@@ -92,7 +92,7 @@ export default function CanvasViewer({
       root: 'leftUpperLeg',
       mid: 'leftLowerLeg',
       end: 'leftFoot',
-      defaultPoleOffset: new THREE.Vector3(0, 0, -0.35)
+      defaultPoleOffset: new THREE.Vector3(0, 0, 0.35)
     },
     {
       name: 'rightFoot',
@@ -100,7 +100,7 @@ export default function CanvasViewer({
       root: 'rightUpperLeg',
       mid: 'rightLowerLeg',
       end: 'rightFoot',
-      defaultPoleOffset: new THREE.Vector3(0, 0, -0.35)
+      defaultPoleOffset: new THREE.Vector3(0, 0, 0.35)
     }
   ];
 
@@ -332,21 +332,94 @@ export default function CanvasViewer({
     scene.add(gridHelper);
     gridRef.current = gridHelper;
 
+    // --- SISTEMA DE ARRASTRE TÁCTIL DIRECTO (IK DRAG) ---
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    const dragPlane = new THREE.Plane();
+    const planeIntersectPoint = new THREE.Vector3();
+    const dragOffset = new THREE.Vector3();
+
     let pointerDownPos = { x: 0, y: 0 };
     let isPointerDown = false;
+    let draggedIkTarget = null;
+
+    const getEventClientCoords = (event) => {
+      if (event.touches && event.touches.length > 0) {
+        return { x: event.touches[0].clientX, y: event.touches[0].clientY };
+      }
+      return { x: event.clientX, y: event.clientY };
+    };
+
+    const updateMouseCoords = (clientX, clientY) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+    };
 
     const handlePointerDown = (event) => {
-      const clientX = event.touches ? event.touches[0].clientX : event.clientX;
-      const clientY = event.touches ? event.touches[0].clientY : event.clientY;
-      pointerDownPos = { x: clientX, y: clientY };
+      const coords = getEventClientCoords(event);
+      pointerDownPos = { x: coords.x, y: coords.y };
       isPointerDown = true;
+      draggedIkTarget = null;
+
+      if (transformControlsRef.current && transformControlsRef.current.dragging) return;
+
+      updateMouseCoords(coords.x, coords.y);
+      raycaster.setFromCamera(mouse, camera);
+
+      // Si IK está activo, probar si tocamos una esfera azul o violeta
+      if (window.__ikEnabled) {
+        const ikIntersects = raycaster.intersectObjects(ikMarkerGroupRef.current.children, true);
+        if (ikIntersects.length > 0) {
+          draggedIkTarget = ikIntersects[0].object;
+          
+          // Crear un plano de arrastre paralelo a la vista de la cámara
+          const cameraDir = new THREE.Vector3();
+          camera.getWorldDirection(cameraDir).negate();
+          dragPlane.setFromNormalAndCoplanarPoint(cameraDir, draggedIkTarget.position);
+
+          // Calcular el offset exacto donde tocó el dedo
+          if (raycaster.ray.intersectPlane(dragPlane, planeIntersectPoint)) {
+            dragOffset.copy(draggedIkTarget.position).sub(planeIntersectPoint);
+          }
+
+          // Bloquear OrbitControls para que no gire la escena mientras arrastras
+          if (controlsRef.current) {
+            controlsRef.current.enabled = false;
+          }
+          return;
+        }
+      }
+    };
+
+    const handlePointerMove = (event) => {
+      if (!isPointerDown || !draggedIkTarget || !window.__ikEnabled) return;
+
+      const coords = getEventClientCoords(event);
+      updateMouseCoords(coords.x, coords.y);
+      raycaster.setFromCamera(mouse, camera);
+
+      if (raycaster.ray.intersectPlane(dragPlane, planeIntersectPoint)) {
+        draggedIkTarget.position.copy(planeIntersectPoint).add(dragOffset);
+      }
     };
 
     const handlePointerUp = (event) => {
       if (!isPointerDown) return;
       isPointerDown = false;
+
+      // Si estábamos arrastrando un nodo IK, soltarlo y restaurar OrbitControls
+      if (draggedIkTarget) {
+        draggedIkTarget = null;
+        if (controlsRef.current) {
+          controlsRef.current.enabled = !window.__isCameraLockedToTrack && !window.__isGizmoDragging;
+        }
+        return;
+      }
+
+      if (controlsRef.current) {
+        controlsRef.current.enabled = !window.__isCameraLockedToTrack && !window.__isGizmoDragging;
+      }
 
       const clientX = event.changedTouches ? event.changedTouches[0].clientX : event.clientX;
       const clientY = event.changedTouches ? event.changedTouches[0].clientY : event.clientY;
@@ -357,22 +430,8 @@ export default function CanvasViewer({
       if (transformControlsRef.current && transformControlsRef.current.dragging) return;
       if (!setSelectedBone) return;
 
-      const rect = renderer.domElement.getBoundingClientRect();
-      mouse.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-      mouse.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-
+      updateMouseCoords(clientX, clientY);
       raycaster.setFromCamera(mouse, camera);
-
-      if (window.__ikEnabled) {
-        const ikIntersects = raycaster.intersectObjects(ikMarkerGroupRef.current.children, true);
-        if (ikIntersects.length > 0) {
-          const hitIk = ikIntersects[0].object;
-          transformControlsRef.current.setMode('translate');
-          transformControlsRef.current.attach(hitIk);
-          transformControlsRef.current.enabled = true;
-          return;
-        }
-      }
 
       const intersects = raycaster.intersectObjects(boneMarkerGroupRef.current.children, true);
 
@@ -391,7 +450,9 @@ export default function CanvasViewer({
 
     const domElem = renderer.domElement;
     domElem.addEventListener('pointerdown', handlePointerDown);
+    domElem.addEventListener('pointermove', handlePointerMove);
     domElem.addEventListener('pointerup', handlePointerUp);
+    domElem.addEventListener('pointercancel', handlePointerUp);
 
     const clock = new THREE.Clock();
     let animationFrameId;
@@ -411,13 +472,13 @@ export default function CanvasViewer({
       }
 
       if (controlsRef.current) {
-        controlsRef.current.enabled = !window.__isCameraLockedToTrack && !window.__isGizmoDragging;
+        controlsRef.current.enabled = !window.__isCameraLockedToTrack && !window.__isGizmoDragging && !draggedIkTarget;
         if (controlsRef.current.enabled) {
           controlsRef.current.update();
         }
       }
 
-      // Animación activa de partículas (caída y balanceo)
+      // Animación activa de partículas
       if (particlesGroupRef.current && particlesGroupRef.current.children.length > 0) {
         const pList = particlesGroupRef.current.children;
         const windX = window.__windEnabled ? (window.__windDirX || 0.4) * (window.__windStrength || 1.0) : 0.1;
@@ -588,6 +649,7 @@ export default function CanvasViewer({
         });
       }
 
+      // Solver de IK en tiempo real según la posición de las esferas
       if (window.__ikEnabled && activeAvatar && activeAvatar.vrm) {
         ikMarkerGroupRef.current.children.forEach(m => (m.visible = true));
 
@@ -631,7 +693,9 @@ export default function CanvasViewer({
     return () => {
       cancelAnimationFrame(animationFrameId);
       domElem.removeEventListener('pointerdown', handlePointerDown);
+      domElem.removeEventListener('pointermove', handlePointerMove);
       domElem.removeEventListener('pointerup', handlePointerUp);
+      domElem.removeEventListener('pointercancel', handlePointerUp);
       resizeObserver.disconnect();
       if (renderer.domElement && container.contains(renderer.domElement)) {
         container.removeChild(renderer.domElement);
@@ -708,8 +772,8 @@ export default function CanvasViewer({
     const ikGroup = ikMarkerGroupRef.current;
     ikGroup.clear();
 
-    const targetGeo = new THREE.SphereGeometry(0.045, 16, 16);
-    const poleGeo = new THREE.SphereGeometry(0.035, 16, 16);
+    const targetGeo = new THREE.SphereGeometry(0.080, 16, 16);
+    const poleGeo = new THREE.SphereGeometry(0.070, 16, 16);
 
     ikChains.forEach(chain => {
       const targetMat = new THREE.MeshBasicMaterial({
@@ -770,7 +834,11 @@ export default function CanvasViewer({
     if (!transformControlsRef.current) return;
     const tc = transformControlsRef.current;
 
-    if (ikEnabled) return;
+    if (ikEnabled) {
+      tc.detach();
+      tc.enabled = false;
+      return;
+    }
 
     const currentAvatar = vrmList[activeVrmIndex];
     if (gizmoEnabled && selectedBone && currentAvatar && currentAvatar.vrm && currentAvatar.vrm.humanoid) {
@@ -950,7 +1018,6 @@ export default function CanvasViewer({
     window.__windDirX = windDirX;
     window.__windDirZ = windDirZ;
 
-    // 1. Limpieza de modelos VRM huérfanos
     const activeScenes = new Set(vrmList.map((v) => v.vrm?.scene).filter(Boolean));
     const toRemove = [];
     scene.children.forEach((child) => {
@@ -960,7 +1027,6 @@ export default function CanvasViewer({
     });
     toRemove.forEach((child) => scene.remove(child));
 
-    // 2. Agregar o reposicionar avatares activos
     vrmList.forEach((vData, idx) => {
       if (vData.vrm) {
         vData.vrm.scene.userData.isVRMScene = true;
