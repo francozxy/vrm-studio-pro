@@ -1,33 +1,61 @@
 import { useState, useRef, useEffect } from 'react';
 import { setVrmExpression } from '../../utils/poseDecoder';
 
-export default function DialoguePanel({ vrmList, activeVrmIndex }) {
-  const [playlist, setPlaylist] = useState([]);
+export default function DialoguePanel({ 
+  vrmList, 
+  activeVrmIndex, 
+  onSpeakerChange, 
+  playlist = [], 
+  setPlaylist 
+}) {
+  const [autoFollowSpeaker, setAutoFollowSpeaker] = useState(true);
   const [sensitivity, setSensitivity] = useState(1.5);
   const [bgMusicVolume, setBgMusicVolume] = useState(0.5);
   const [statusMessage, setStatusMessage] = useState('Listo para reproducir');
 
-  // Referencias de audio, analizador y avatar hablante actual
+  // Reproductor persistente único para evitar bloqueos de Android
+  const singleAudioRef = useRef(null);
   const audioCtxRef = useRef(null);
   const analyserRef = useRef(null);
-  const activeAudioRef = useRef(null);
+  const sourceNodeRef = useRef(null);
   const bgMusicRef = useRef(null);
   const timeoutRef = useRef(null);
   const animFrameRef = useRef(null);
   const currentSpeakingAvatarRef = useRef(null);
 
-  // Inicializar Contexto de Audio
-  const getAudioContext = () => {
-    if (!audioCtxRef.current) {
-      audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+  // Inicializar un solo Audio y su analizador (1 sola vez)
+  const initAudioSystem = () => {
+    if (!singleAudioRef.current) {
+      const audio = new Audio();
+      audio.crossOrigin = 'anonymous';
+      singleAudioRef.current = audio;
     }
-    if (audioCtxRef.current.state === 'suspended') {
+
+    if (!audioCtxRef.current) {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      audioCtxRef.current = ctx;
+
+      const analyser = ctx.createAnalyser();
+      analyser.fftSize = 256;
+      analyserRef.current = analyser;
+
+      try {
+        const src = ctx.createMediaElementSource(singleAudioRef.current);
+        src.connect(analyser);
+        analyser.connect(ctx.destination);
+        sourceNodeRef.current = src;
+      } catch (err) {
+        console.warn("Audio node ya conectado:", err);
+      }
+    }
+
+    if (audioCtxRef.current && audioCtxRef.current.state === 'suspended') {
       audioCtxRef.current.resume();
     }
-    return audioCtxRef.current;
+
+    return { audio: singleAudioRef.current, ctx: audioCtxRef.current };
   };
 
-  // Cargar audios a la lista con asignación por defecto al avatar activo
   const handleAudioUpload = (e) => {
     const files = Array.from(e.target.files);
     const newItems = files.map((file, idx) => ({
@@ -35,7 +63,8 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
       name: file.name,
       file: file,
       delayAfter: 0.5,
-      avatarIndex: activeVrmIndex || 0
+      avatarIndex: activeVrmIndex || 0,
+      followCam: true // Tilde activo por defecto en cada audio
     }));
     setPlaylist(prev => [...prev, ...newItems]);
   };
@@ -48,9 +77,15 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
     setPlaylist(prev => prev.map(item => item.id === id ? { ...item, delayAfter: parseFloat(val) || 0 } : item));
   };
 
-  // Cambiar el personaje asignado a un audio específico
   const handleAvatarChange = (id, avatarIdx) => {
     setPlaylist(prev => prev.map(item => item.id === id ? { ...item, avatarIndex: parseInt(avatarIdx) || 0 } : item));
+  };
+
+  // Alternar el tilde individual de cámara por audio
+  const handleToggleFollowCam = (id) => {
+    setPlaylist(prev => prev.map(item => 
+      item.id === id ? { ...item, followCam: !(item.followCam ?? true) } : item
+    ));
   };
 
   const handleMoveAudio = (index, direction) => {
@@ -63,27 +98,12 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
     setPlaylist(updated);
   };
 
-  // Conectar analizador de audio para el avatar target asignado
-  const setupAudioAnalyser = (audioElement, targetAvatar) => {
-    const ctx = getAudioContext();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 256;
-
-    const source = ctx.createMediaElementSource(audioElement);
-    source.connect(analyser);
-    analyser.connect(ctx.destination);
-
-    analyserRef.current = analyser;
-    currentSpeakingAvatarRef.current = targetAvatar;
-    startLipSyncLoop();
-  };
-
-  // Bucle de Lip-Sync aplicado al avatar que está hablando
+  // Bucle de Lip-Sync
   const startLipSyncLoop = () => {
     const update = () => {
       const avatar = currentSpeakingAvatarRef.current;
 
-      if (analyserRef.current && activeAudioRef.current && !activeAudioRef.current.paused) {
+      if (analyserRef.current && singleAudioRef.current && !singleAudioRef.current.paused) {
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(dataArray);
 
@@ -97,7 +117,7 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
           setVrmExpression(avatar, 'aa', volumeNorm);
           setVrmExpression(avatar, 'ih', volumeNorm * 0.4);
         }
-      } else if (avatar && activeAudioRef.current && activeAudioRef.current.paused) {
+      } else if (avatar && singleAudioRef.current && singleAudioRef.current.paused) {
         setVrmExpression(avatar, 'aa', 0);
         setVrmExpression(avatar, 'ih', 0);
       }
@@ -112,35 +132,54 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
   // Reproducir un único audio
   const playSingleAudio = (item) => {
     stopSequence();
+    const { audio } = initAudioSystem();
     const targetAvatar = vrmList[item.avatarIndex] || vrmList[activeVrmIndex];
-    const audio = new Audio(URL.createObjectURL(item.file));
-    activeAudioRef.current = audio;
-    setupAudioAnalyser(audio, targetAvatar);
-    audio.play();
+    currentSpeakingAvatarRef.current = targetAvatar;
+
+    // Solo enfoca si el switch global y el switch individual están tildados
+    const shouldFollow = autoFollowSpeaker && (item.followCam ?? true);
+    if (shouldFollow && onSpeakerChange) {
+      onSpeakerChange(item.avatarIndex ?? activeVrmIndex ?? 0);
+    }
+
+    audio.src = URL.createObjectURL(item.file);
+    audio.onended = () => {
+      if (targetAvatar) {
+        setVrmExpression(targetAvatar, 'aa', 0);
+        setVrmExpression(targetAvatar, 'ih', 0);
+      }
+      setStatusMessage('Listo');
+    };
+
+    audio.play().catch(e => console.error("Error al reproducir audio:", e));
+    startLipSyncLoop();
     setStatusMessage(`Hablando: ${targetAvatar ? targetAvatar.name : 'Avatar'} - ${item.name}`);
   };
 
-  // Reproducción en secuencia alternando personajes
+  // Reproducción en secuencia continua
   const playSequenceStep = (index) => {
-    if (index >= playlist.length) {
+    if (!playlist || index >= playlist.length) {
       setStatusMessage('Secuencia finalizada');
       stopSequence();
       return;
     }
 
+    const { audio } = initAudioSystem();
     const item = playlist[index];
     const targetAvatar = vrmList[item.avatarIndex] || vrmList[activeVrmIndex];
+    currentSpeakingAvatarRef.current = targetAvatar;
     
     setStatusMessage(`Diálogo ${index + 1}/${playlist.length}: [${targetAvatar ? targetAvatar.name : 'Sin Avatar'}] ${item.name}`);
 
-    const audio = new Audio(URL.createObjectURL(item.file));
-    activeAudioRef.current = audio;
-    setupAudioAnalyser(audio, targetAvatar);
+    // Solo enfoca si el switch global y el individual de este audio están activados
+    const shouldFollow = autoFollowSpeaker && (item.followCam ?? true);
+    if (shouldFollow && onSpeakerChange) {
+      onSpeakerChange(item.avatarIndex ?? activeVrmIndex ?? 0);
+    }
 
-    audio.play();
+    audio.src = URL.createObjectURL(item.file);
 
-    audio.onended = () => {
-      // Cerrar la boca del personaje actual al terminar de hablar
+    const advanceToNext = () => {
       if (targetAvatar) {
         setVrmExpression(targetAvatar, 'aa', 0);
         setVrmExpression(targetAvatar, 'ih', 0);
@@ -148,14 +187,27 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
       setStatusMessage(`Pausa de ${item.delayAfter}s...`);
       timeoutRef.current = setTimeout(() => {
         playSequenceStep(index + 1);
-      }, item.delayAfter * 1000);
+      }, (item.delayAfter || 0.1) * 1000);
     };
+
+    audio.onended = advanceToNext;
+    audio.onerror = () => {
+      console.warn(`Error en pista ${item.name}, avanzando...`);
+      advanceToNext();
+    };
+
+    audio.play().catch(err => {
+      console.warn("Reproducción interrumpida:", err);
+      advanceToNext();
+    });
+
+    startLipSyncLoop();
   };
 
   const handlePlayAll = () => {
-    if (playlist.length === 0) return;
-    if (activeAudioRef.current && activeAudioRef.current.paused) {
-      activeAudioRef.current.play();
+    if (!playlist || playlist.length === 0) return;
+    if (singleAudioRef.current && singleAudioRef.current.paused && singleAudioRef.current.src) {
+      singleAudioRef.current.play();
       setStatusMessage('Reanudando secuencia');
     } else {
       stopSequence();
@@ -164,8 +216,8 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
   };
 
   const handlePause = () => {
-    if (activeAudioRef.current) {
-      activeAudioRef.current.pause();
+    if (singleAudioRef.current) {
+      singleAudioRef.current.pause();
       setStatusMessage('Pausado');
     }
   };
@@ -173,12 +225,13 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
   const stopSequence = () => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    if (activeAudioRef.current) {
-      activeAudioRef.current.pause();
-      activeAudioRef.current = null;
+    if (singleAudioRef.current) {
+      singleAudioRef.current.pause();
+      singleAudioRef.current.removeAttribute('src');
+      singleAudioRef.current.onended = null;
+      singleAudioRef.current.onerror = null;
     }
     
-    // Limpiar boca de todos los personajes cargados
     vrmList.forEach(avatar => {
       if (avatar) {
         setVrmExpression(avatar, 'aa', 0);
@@ -221,7 +274,20 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
         <label>Agregar Audios (.mp3 / .wav):</label>
         <input type="file" accept="audio/*" multiple onChange={handleAudioUpload} />
 
-        <label style={{ marginTop: '8px' }}>Sensibilidad Lip-Sync:</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }}>
+          <input 
+            type="checkbox" 
+            id="followSpeakerCheck" 
+            checked={autoFollowSpeaker} 
+            onChange={(e) => setAutoFollowSpeaker(e.target.checked)}
+            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+          />
+          <label htmlFor="followSpeakerCheck" style={{ fontSize: '0.7rem', color: '#7aa2f7', cursor: 'pointer', margin: 0 }}>
+            🎥 Enfoque automático global
+          </label>
+        </div>
+
+        <label>Sensibilidad Lip-Sync:</label>
         <input 
           type="range" 
           min="0.5" 
@@ -242,7 +308,7 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
         </div>
       </div>
 
-      {/* 2. PLAYLIST UI CON ASIGNACIÓN DE PERSONAJE */}
+      {/* 2. PLAYLIST UI CON ASIGNACIÓN DE PERSONAJE Y CHECKBOX INDIVIDUAL */}
       <div className="section-box">
         <div className="section-title">📜 Lista de Reproducción</div>
         {playlist.length === 0 ? (
@@ -285,6 +351,19 @@ export default function DialoguePanel({ vrmList, activeVrmIndex }) {
                       </option>
                     ))}
                   </select>
+                </div>
+
+                {/* TILDE INDIVIDUAL DE CÁMARA */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                  <label style={{ fontSize: '0.65rem', color: '#bb9af7', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                    <input 
+                      type="checkbox" 
+                      checked={item.followCam ?? true} 
+                      onChange={() => handleToggleFollowCam(item.id)}
+                      style={{ width: '13px', height: '13px', cursor: 'pointer', margin: 0 }}
+                    />
+                    🎥 Enfocar cara al hablar
+                  </label>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>

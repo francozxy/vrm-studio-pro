@@ -138,6 +138,8 @@ const loadModelFile = async (file) => {
 };
 
 export default function App() {
+
+const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
   const [activeTab, setActiveTab] = useState('posing');
   const [vrmList, setVrmList] = useState([]);
   const [activeVrmIndex, setActiveVrmIndex] = useState(0);
@@ -704,9 +706,21 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'dialogue' && (
-            <DialoguePanel vrmList={vrmList} activeVrmIndex={activeVrmIndex} />
-          )}
+       {activeTab === 'dialogue' && (
+         <DialoguePanel 
+           vrmList={vrmList} 
+           activeVrmIndex={activeVrmIndex} 
+           playlist={dialoguePlaylist}
+           setPlaylist={setDialoguePlaylist}
+           onSpeakerChange={(speakerIdx) => {
+             setActiveVrmIndex(speakerIdx);
+             setCameraTargetPreset({ type: 'face', targetIndex: speakerIdx, id: Date.now() });
+           }}   
+         />
+       )}
+
+
+
 
           {activeTab === 'anim' && (
             <ScenePanel
