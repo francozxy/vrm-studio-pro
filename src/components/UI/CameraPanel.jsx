@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import * as THREE from 'three';
 import { loadVmdCameraFile } from '../../utils/CameraLoader';
 
 export default function CameraPanel({
@@ -23,6 +24,22 @@ export default function CameraPanel({
 }) {
   const [telemetry, setTelemetry] = useState({ x: 0, y: 1.2, z: 2.5 });
 
+  // Grabador
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordDuration, setRecordDuration] = useState(0);
+  const recordIntervalRef = useRef(null);
+  const recordedFramesRef = useRef([]);
+  const recordStartTimeRef = useRef(0);
+
+  // Secuencia (Playlist)
+  const [cameraPlaylist, setCameraPlaylist] = useState([]);
+  const [activeTrackIndex, setActiveTrackIndex] = useState(null);
+  const [isSequencePlaying, setIsSequencePlaying] = useState(false);
+  const [statusText, setStatusText] = useState('');
+  
+  const sequenceTimeoutRef = useRef(null);
+  const transitionAnimRef = useRef(null);
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (window.__cameraTelemetry) {
@@ -36,6 +53,32 @@ export default function CameraPanel({
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    return () => stopSequence();
+  }, []);
+
+  const createClipFromFrames = (frames, clipName) => {
+    const times = [];
+    const positions = [];
+    const quaternions = [];
+
+    frames.forEach((f) => {
+      times.push(f.time);
+      positions.push(...f.pos);
+      quaternions.push(...f.rot);
+    });
+
+    const posTrack = new THREE.VectorKeyframeTrack('.position', times, positions);
+    const rotTrack = new THREE.QuaternionKeyframeTrack('.quaternion', times, quaternions);
+    const duration = times[times.length - 1] || 1;
+
+    return {
+      clip: new THREE.AnimationClip(clipName, duration, [posTrack, rotTrack]),
+      duration
+    };
+  };
+
+  // --- VMD LOADER ---
   const processVmd = async (file, scaleVal, yVal, zVal) => {
     if (!file) return;
     try {
@@ -51,7 +94,6 @@ export default function CameraPanel({
       window.__isPlayingCamera = true;
       setIsPlayingCamera(true);
     } catch (err) {
-      console.error('Error al procesar cámara VMD:', err);
       alert('Error al leer el archivo VMD de cámara.');
     }
   };
@@ -82,6 +124,222 @@ export default function CameraPanel({
     const nextState = !isPlayingCamera;
     setIsPlayingCamera(nextState);
     window.__isPlayingCamera = nextState;
+  };
+
+  // --- GRABACIÓN MANUAL ---
+  const startRecordingCamera = () => {
+    stopSequence();
+    setIsCameraLockedToTrack(false);
+    window.__isCameraLockedToTrack = false;
+
+    recordedFramesRef.current = [];
+    recordStartTimeRef.current = performance.now();
+    setIsRecording(true);
+    setRecordDuration(0);
+
+    recordIntervalRef.current = setInterval(() => {
+      const t = (performance.now() - recordStartTimeRef.current) / 1000;
+      const cam = window.__currentCamera;
+
+      if (cam) {
+        recordedFramesRef.current.push({
+          time: t,
+          pos: [cam.position.x, cam.position.y, cam.position.z],
+          rot: [cam.quaternion.x, cam.quaternion.y, cam.quaternion.z, cam.quaternion.w]
+        });
+      }
+      setRecordDuration(t.toFixed(1));
+    }, 33);
+  };
+
+  const stopRecordingCamera = () => {
+    if (recordIntervalRef.current) clearInterval(recordIntervalRef.current);
+    setIsRecording(false);
+
+    const frames = recordedFramesRef.current;
+    if (frames.length < 2) {
+      alert('La grabación fue demasiado corta.');
+      return;
+    }
+
+    const name = `Toma_${cameraPlaylist.length + 1}`;
+    const { clip, duration } = createClipFromFrames(frames, name);
+
+    setCameraPlaylist((prev) => [
+      ...prev,
+      {
+        id: Date.now() + Math.random(),
+        name,
+        duration,
+        transitionTime: 1.0, // 1s de interpolación por defecto
+        frames,
+        clip
+      }
+    ]);
+  };
+
+  // --- PLAYLIST & INTERPOLACIÓN ---
+  const handleTransitionChange = (id, val) => {
+    setCameraPlaylist((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, transitionTime: Math.max(0, parseFloat(val) || 0) } : item))
+    );
+  };
+
+  const handleRemoveTrack = (id) => {
+    setCameraPlaylist((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleMoveTrack = (index, direction) => {
+    const newIndex = index + direction;
+    if (newIndex < 0 || newIndex >= cameraPlaylist.length) return;
+    const updated = [...cameraPlaylist];
+    const temp = updated[index];
+    updated[index] = updated[newIndex];
+    updated[newIndex] = temp;
+    setCameraPlaylist(updated);
+  };
+
+  // Función suave de transición (Lerp/Slerp)
+  const interpolateCameraTransition = (targetFrame, transitionSec, onComplete) => {
+    const cam = window.__currentCamera;
+    if (!cam || transitionSec <= 0) {
+      if (cam && targetFrame) {
+        cam.position.set(...targetFrame.pos);
+        cam.quaternion.set(...targetFrame.rot);
+      }
+      onComplete();
+      return;
+    }
+
+    setIsCameraLockedToTrack(false);
+    window.__isCameraLockedToTrack = false;
+
+    const startPos = cam.position.clone();
+    const startRot = cam.quaternion.clone();
+    const endPos = new THREE.Vector3(...targetFrame.pos);
+    const endRot = new THREE.Quaternion(...targetFrame.rot);
+
+    const startTime = performance.now();
+    const durationMs = transitionSec * 1000;
+
+    const step = () => {
+      const elapsed = performance.now() - startTime;
+      const progress = Math.min(1.0, elapsed / durationMs);
+
+      // Smooth step easing
+      const ease = progress * progress * (3 - 2 * progress);
+
+      cam.position.lerpVectors(startPos, endPos, ease);
+      cam.quaternion.slerpQuaternions(startRot, endRot, ease);
+
+      if (progress < 1.0) {
+        transitionAnimRef.current = requestAnimationFrame(step);
+      } else {
+        onComplete();
+      }
+    };
+
+    transitionAnimRef.current = requestAnimationFrame(step);
+  };
+
+  const playCameraSequenceStep = (index) => {
+    if (index >= cameraPlaylist.length) {
+      stopSequence();
+      setStatusText('Secuencia completada');
+      return;
+    }
+
+    const item = cameraPlaylist[index];
+    setActiveTrackIndex(index);
+
+    const firstFrame = item.frames[0];
+    const transition = index === 0 ? 0 : (item.transitionTime ?? 1.0);
+
+    if (transition > 0) {
+      setStatusText(`Transición hacia Toma ${index + 1} (${transition}s)...`);
+    } else {
+      setStatusText(`Reproduciendo Toma ${index + 1}: ${item.name}`);
+    }
+
+    interpolateCameraTransition(firstFrame, transition, () => {
+      setStatusText(`Reproduciendo Toma ${index + 1}: ${item.name}`);
+      setCameraClip(item.clip);
+      setCameraFileName(item.name);
+      setIsCameraLockedToTrack(true);
+      window.__isCameraLockedToTrack = true;
+      setIsPlayingCamera(true);
+      window.__isPlayingCamera = true;
+
+      sequenceTimeoutRef.current = setTimeout(() => {
+        playCameraSequenceStep(index + 1);
+      }, item.duration * 1000);
+    });
+  };
+
+  const handlePlaySequence = () => {
+    if (cameraPlaylist.length === 0) return;
+    stopSequence();
+    setIsSequencePlaying(true);
+    playCameraSequenceStep(0);
+  };
+
+  const stopSequence = () => {
+    if (sequenceTimeoutRef.current) clearTimeout(sequenceTimeoutRef.current);
+    if (transitionAnimRef.current) cancelAnimationFrame(transitionAnimRef.current);
+    setIsSequencePlaying(false);
+    setActiveTrackIndex(null);
+    setStatusText('');
+  };
+
+  // --- EXPORTAR / IMPORTAR TODO EN UN SOLO JSON ---
+  const handleExportFullSequence = () => {
+    if (cameraPlaylist.length === 0) return;
+
+    const exportData = cameraPlaylist.map((item) => ({
+      name: item.name,
+      transitionTime: item.transitionTime ?? 1.0,
+      frames: item.frames
+    }));
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const dlAnchor = document.createElement('a');
+    dlAnchor.setAttribute('href', dataStr);
+    dlAnchor.setAttribute('download', `cinematic_sequence_${Date.now()}.json`);
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    dlAnchor.remove();
+  };
+
+  const handleImportFullSequence = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const raw = JSON.parse(evt.target.result);
+        const list = Array.isArray(raw) ? raw : [raw];
+
+        const reconstructed = list.map((item, idx) => {
+          const frames = item.frames || item;
+          const { clip, duration } = createClipFromFrames(frames, item.name || `Toma_${idx + 1}`);
+          return {
+            id: Date.now() + idx + Math.random(),
+            name: item.name || `Toma_${idx + 1}`,
+            duration,
+            transitionTime: item.transitionTime !== undefined ? item.transitionTime : 1.0,
+            frames,
+            clip
+          };
+        });
+
+        setCameraPlaylist((prev) => [...prev, ...reconstructed]);
+      } catch (err) {
+        alert('❌ Error al importar archivo de secuencia.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -127,6 +385,142 @@ export default function CameraPanel({
 
       <hr style={{ borderColor: '#2f354a', margin: '14px 0' }} />
 
+      {/* GRABADOR MANUAL */}
+      <div style={{ background: '#1a1b26', padding: '10px', borderRadius: '6px', marginBottom: '14px', border: '1px solid #414868' }}>
+        <div style={{ fontSize: '12px', color: '#bb9af7', fontWeight: 'bold', marginBottom: '6px' }}>
+          🎬 Grabador de Tomas:
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {!isRecording ? (
+            <button
+              className="tab-btn"
+              style={{ flex: 1, backgroundColor: '#f7768e', color: '#fff', fontWeight: 'bold', padding: '8px' }}
+              onClick={startRecordingCamera}
+            >
+              ⏺ Grabar Toma
+            </button>
+          ) : (
+            <button
+              className="tab-btn"
+              style={{ flex: 1, backgroundColor: '#e0af68', color: '#1a1b26', fontWeight: 'bold', padding: '8px' }}
+              onClick={stopRecordingCamera}
+            >
+              ⏹ Guardar Toma ({recordDuration}s)
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* SECUENCIA CINEMÁTICA CON INTERPOLACIÓN */}
+      <div style={{ background: '#1a1b26', padding: '10px', borderRadius: '6px', marginBottom: '14px', border: '1px solid #414868' }}>
+        <div style={{ fontSize: '12px', color: '#7aa2f7', fontWeight: 'bold', marginBottom: '6px' }}>
+          🎞️ Secuencia de Película / Cinemática
+        </div>
+
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+          <button
+            className="tab-btn"
+            style={{ flex: 1, backgroundColor: '#9ece6a', color: '#1a1b26', fontWeight: 'bold', padding: '6px' }}
+            onClick={handlePlaySequence}
+            disabled={cameraPlaylist.length === 0}
+          >
+            ▶ Reproducir Secuencia
+          </button>
+          <button
+            className="tab-btn"
+            style={{ backgroundColor: '#f7768e', color: '#fff', padding: '6px' }}
+            onClick={stopSequence}
+            disabled={!isSequencePlaying}
+          >
+            ⏹ Detener
+          </button>
+        </div>
+
+        {statusText && (
+          <div style={{ fontSize: '10px', color: '#7dcfff', fontStyle: 'italic', marginBottom: '8px' }}>
+            {statusText}
+          </div>
+        )}
+
+        {cameraPlaylist.length === 0 ? (
+          <div style={{ fontSize: '11px', color: '#565f89', textAlign: 'center', padding: '6px' }}>
+            No hay planos grabados ni cargados
+          </div>
+        ) : (
+          <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '8px' }}>
+            {cameraPlaylist.map((item, idx) => (
+              <div
+                key={item.id}
+                style={{
+                  background: activeTrackIndex === idx ? '#24283b' : '#13141f',
+                  border: activeTrackIndex === idx ? '1px solid #7aa2f7' : '1px solid #2f354a',
+                  padding: '6px',
+                  borderRadius: '4px',
+                  marginBottom: '6px'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#c0caf5', marginBottom: '4px' }}>
+                  <span style={{ fontWeight: 'bold' }}>{idx + 1}. {item.name}</span>
+                  <span style={{ color: '#7dcfff' }}>{item.duration.toFixed(1)}s</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '10px', color: '#bb9af7' }}>Transición ant. (s):</span>
+                  <input
+                    type="number"
+                    step="0.2"
+                    min="0"
+                    value={item.transitionTime ?? 1.0}
+                    onChange={(e) => handleTransitionChange(item.id, e.target.value)}
+                    style={{ width: '50px', padding: '2px', fontSize: '10px', marginBottom: 0 }}
+                  />
+                  <span style={{ fontSize: '9px', color: '#565f89' }}>(0 = corte)</span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => {
+                    stopSequence();
+                    interpolateCameraTransition(item.frames[0], 0, () => {
+                      setCameraClip(item.clip);
+                      setCameraFileName(item.name);
+                      setIsCameraLockedToTrack(true);
+                      window.__isCameraLockedToTrack = true;
+                      setIsPlayingCamera(true);
+                    });
+                  }}>▶</button>
+                  <button style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleMoveTrack(idx, -1)}>⬆</button>
+                  <button style={{ padding: '2px 6px', fontSize: '10px' }} onClick={() => handleMoveTrack(idx, 1)}>⬇</button>
+                  <button style={{ padding: '2px 6px', fontSize: '10px', backgroundColor: '#f7768e', color: '#fff' }} onClick={() => handleRemoveTrack(item.id)}>🗑️</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* BOTONES EXPORTAR / IMPORTAR TODO */}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <button
+            className="tab-btn"
+            style={{ flex: 1, fontSize: '10px', backgroundColor: '#7aa2f7', padding: '6px' }}
+            onClick={handleExportFullSequence}
+            disabled={cameraPlaylist.length === 0}
+          >
+            💾 Guardar Todo (.json)
+          </button>
+          <label
+            className="tab-btn"
+            style={{ flex: 1, fontSize: '10px', backgroundColor: '#414868', textAlign: 'center', padding: '6px', cursor: 'pointer', margin: 0 }}
+          >
+            📂 Cargar Todo (.json)
+            <input type="file" accept=".json" onChange={handleImportFullSequence} style={{ display: 'none' }} />
+          </label>
+        </div>
+      </div>
+
+      <hr style={{ borderColor: '#2f354a', margin: '14px 0' }} />
+
+      {/* IMPORTACIÓN MMD VMD */}
       <label>📁 Importar Cámara MMD (.vmd):</label>
       <input
         type="file"
@@ -138,7 +532,7 @@ export default function CameraPanel({
       {cameraFileName && (
         <div style={{ marginTop: '12px', background: '#1a1b26', padding: '10px', borderRadius: '6px' }}>
           <div style={{ fontSize: '12px', color: '#7aa2f7', marginBottom: '8px', wordBreak: 'break-all' }}>
-            🎬 Pista: <b>{cameraFileName}</b>
+            🎬 Pista Activa: <b>{cameraFileName}</b>
           </div>
 
           <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
@@ -166,10 +560,9 @@ export default function CameraPanel({
                 window.__isCameraLockedToTrack = e.target.checked;
               }}
             />
-            Bloquear al recorrido VMD
+            Bloquear al recorrido
           </label>
 
-          {/* Calibración de Escala y Altura persistente */}
           <div style={{ borderTop: '1px solid #2f354a', paddingTop: '8px', marginTop: '6px' }}>
             <div style={{ fontSize: '11px', color: '#e0af68', fontWeight: 'bold', marginBottom: '6px' }}>🎯 Calibración de Encuadre:</div>
             
