@@ -332,7 +332,6 @@ export default function CanvasViewer({
     scene.add(gridHelper);
     gridRef.current = gridHelper;
 
-    // --- SISTEMA DE ARRASTRE TÁCTIL DIRECTO (IK DRAG) ---
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
     const dragPlane = new THREE.Plane();
@@ -367,23 +366,19 @@ export default function CanvasViewer({
       updateMouseCoords(coords.x, coords.y);
       raycaster.setFromCamera(mouse, camera);
 
-      // Si IK está activo, probar si tocamos una esfera azul o violeta
       if (window.__ikEnabled) {
         const ikIntersects = raycaster.intersectObjects(ikMarkerGroupRef.current.children, true);
         if (ikIntersects.length > 0) {
           draggedIkTarget = ikIntersects[0].object;
           
-          // Crear un plano de arrastre paralelo a la vista de la cámara
           const cameraDir = new THREE.Vector3();
           camera.getWorldDirection(cameraDir).negate();
           dragPlane.setFromNormalAndCoplanarPoint(cameraDir, draggedIkTarget.position);
 
-          // Calcular el offset exacto donde tocó el dedo
           if (raycaster.ray.intersectPlane(dragPlane, planeIntersectPoint)) {
             dragOffset.copy(draggedIkTarget.position).sub(planeIntersectPoint);
           }
 
-          // Bloquear OrbitControls para que no gire la escena mientras arrastras
           if (controlsRef.current) {
             controlsRef.current.enabled = false;
           }
@@ -408,7 +403,6 @@ export default function CanvasViewer({
       if (!isPointerDown) return;
       isPointerDown = false;
 
-      // Si estábamos arrastrando un nodo IK, soltarlo y restaurar OrbitControls
       if (draggedIkTarget) {
         draggedIkTarget = null;
         if (controlsRef.current) {
@@ -478,7 +472,6 @@ export default function CanvasViewer({
         }
       }
 
-      // Animación activa de partículas
       if (particlesGroupRef.current && particlesGroupRef.current.children.length > 0) {
         const pList = particlesGroupRef.current.children;
         const windX = window.__windEnabled ? (window.__windDirX || 0.4) * (window.__windStrength || 1.0) : 0.1;
@@ -649,7 +642,6 @@ export default function CanvasViewer({
         });
       }
 
-      // Solver de IK en tiempo real según la posición de las esferas
       if (window.__ikEnabled && activeAvatar && activeAvatar.vrm) {
         ikMarkerGroupRef.current.children.forEach(m => (m.visible = true));
 
@@ -881,32 +873,51 @@ export default function CanvasViewer({
     }
   }, [fov, isCameraLockedToTrack]);
 
+  // SEGUIMIENTO DINÁMICO DE CÁMARA POR AVATAR ASIGNADO
   useEffect(() => {
     if (!cameraTargetPreset || !cameraRef.current || !controlsRef.current) return;
     const camera = cameraRef.current;
     const controls = controlsRef.current;
 
-    switch (cameraTargetPreset.type) {
-      case 'face':
+    const targetIdx = cameraTargetPreset.targetIndex !== undefined
+      ? cameraTargetPreset.targetIndex
+      : activeVrmIndex;
+
+    const targetAvatar = vrmList[targetIdx]?.vrm;
+    const targetPos = new THREE.Vector3();
+
+    if (cameraTargetPreset.type === 'face') {
+      const headNode = targetAvatar?.humanoid?.getNormalizedBoneNode('head');
+      if (headNode) {
+        headNode.updateWorldMatrix(true, false);
+        headNode.getWorldPosition(targetPos);
+        controls.target.copy(targetPos);
+        camera.position.set(targetPos.x, targetPos.y + 0.05, targetPos.z + 0.65);
+      } else {
         camera.position.set(0, 1.45, 0.8);
         controls.target.set(0, 1.4, 0);
-        break;
-      case 'body':
+      }
+    } else if (cameraTargetPreset.type === 'body') {
+      const hipsNode = targetAvatar?.humanoid?.getNormalizedBoneNode('hips');
+      if (hipsNode) {
+        hipsNode.updateWorldMatrix(true, false);
+        hipsNode.getWorldPosition(targetPos);
+        controls.target.set(targetPos.x, targetPos.y - 0.1, targetPos.z);
+        camera.position.set(targetPos.x, targetPos.y + 0.1, targetPos.z + 2.4);
+      } else {
         camera.position.set(0, 0.9, 2.8);
         controls.target.set(0, 0.8, 0);
-        break;
-      case 'top':
-        camera.position.set(0, 3.2, 1.5);
-        controls.target.set(0, 0.8, 0);
-        break;
-      case 'reset':
-      default:
-        camera.position.set(0, 1.2, 2.5);
-        controls.target.set(0, 1.0, 0);
-        break;
+      }
+    } else if (cameraTargetPreset.type === 'top') {
+      camera.position.set(0, 3.2, 1.5);
+      controls.target.set(0, 0.8, 0);
+    } else {
+      camera.position.set(0, 1.2, 2.5);
+      controls.target.set(0, 1.0, 0);
     }
+
     controls.update();
-  }, [cameraTargetPreset]);
+  }, [cameraTargetPreset, vrmList, activeVrmIndex]);
 
   useEffect(() => {
     if (hemiLightRef.current) {
