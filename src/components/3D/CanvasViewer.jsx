@@ -16,12 +16,16 @@ export default function CanvasViewer({
   disableFrustumCulling = true,
   bgVideoSrc = null,
   videoScale = 100,
+  skyboxSrc = null,
   isPlaying = false,
   onTimeUpdate,
   fov = 45,
   cameraTargetPreset = null,
   stageList = [],
   propList = [],
+  selectedPropIndex = null,
+  setSelectedPropIndex,
+  propGizmoMode = 'translate',
   toonIntensity = 0.9,
   shadeColor = '#5c5075',
   outlineEnabled = true,
@@ -44,6 +48,7 @@ export default function CanvasViewer({
   windFrequency = 4.5,
   windDirX = 0.4,
   windDirZ = 0.0,
+  windLift = 0.5,
   particleEffect = 'none'
 }) {
   const mountRef = useRef(null);
@@ -422,24 +427,46 @@ export default function CanvasViewer({
       if (dist > 6) return;
 
       if (transformControlsRef.current && transformControlsRef.current.dragging) return;
-      if (!setSelectedBone) return;
 
       updateMouseCoords(clientX, clientY);
       raycaster.setFromCamera(mouse, camera);
 
-      const intersects = raycaster.intersectObjects(boneMarkerGroupRef.current.children, true);
-
-      if (intersects.length > 0) {
-        const hitMarker = intersects[0].object;
-        if (hitMarker.userData && hitMarker.userData.boneName) {
+      // 1. Detección de huesos del avatar
+      const boneIntersects = raycaster.intersectObjects(boneMarkerGroupRef.current.children, true);
+      if (boneIntersects.length > 0) {
+        const hitMarker = boneIntersects[0].object;
+        if (hitMarker.userData && hitMarker.userData.boneName && setSelectedBone) {
           setSelectedBone(hitMarker.userData.boneName);
-        }
-      } else {
-        setSelectedBone('');
-        if (transformControlsRef.current) {
-          transformControlsRef.current.detach();
+          if (setSelectedPropIndex) setSelectedPropIndex(null);
+          return;
         }
       }
+
+      // 2. Detección táctil directa de Props / Objetos en la escena
+      if (propList && propList.length > 0 && setSelectedPropIndex) {
+        const propScenes = propList.map(p => p.scene).filter(Boolean);
+        const propIntersects = raycaster.intersectObjects(propScenes, true);
+
+        if (propIntersects.length > 0) {
+          const hitObj = propIntersects[0].object;
+          const hitPropIndex = propList.findIndex(p => {
+            let curr = hitObj;
+            while (curr) {
+              if (curr === p.scene) return true;
+              curr = curr.parent;
+            }
+            return false;
+          });
+
+          if (hitPropIndex !== -1) {
+            setSelectedPropIndex(hitPropIndex);
+            if (setSelectedBone) setSelectedBone('');
+            return;
+          }
+        }
+      }
+
+      if (setSelectedBone) setSelectedBone('');
     };
 
     const domElem = renderer.domElement;
@@ -460,6 +487,9 @@ export default function CanvasViewer({
       animationFrameId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
       windTime += delta;
+
+      window.__currentCamera = camera;
+      window.__cameraTelemetry = { x: camera.position.x, y: camera.position.y, z: camera.position.z };
 
       if (cameraMixerRef.current && window.__isCameraLockedToTrack && window.__isPlayingCamera !== false) {
         cameraMixerRef.current.update(delta);
@@ -509,14 +539,21 @@ export default function CanvasViewer({
                 const strength = window.__windStrength !== undefined ? window.__windStrength : 0.5;
                 const dirXVal = window.__windDirX !== undefined ? window.__windDirX : 1.0;
                 const dirZVal = window.__windDirZ !== undefined ? window.__windDirZ : 0.0;
+                const liftVal = window.__windLift !== undefined ? window.__windLift : (windLift || 0.0);
 
                 const t = windTime * freq;
                 const gust = Math.sin(t) * Math.cos(t * 0.6) + Math.sin(t * 1.8) * 0.3;
+
+                // Fuerzas horizontales
                 const forceX = dirXVal * strength * (1.2 + gust);
                 const forceZ = (dirZVal + 0.3) * strength * (1.0 + Math.cos(t * 1.2) * 0.5);
-                const forceY = -0.3 * strength + Math.sin(t * 2.0) * 0.1 * strength;
 
-                const windVec = new THREE.Vector3(forceX * 2.5, forceY, forceZ * 2.5);
+                // 🔥 FUERZA VERTICAL POTENCIADA (Vence la gravedad y levanta faldas/cabello)
+                const upwardLift = (liftVal * 4.0) + (Math.abs(Math.sin(t * 1.4)) * liftVal * 3.5);
+                const forceY = upwardLift * (strength > 0 ? (0.5 + strength * 0.5) : 1.0);
+
+                // Vector resultante con prioridad ascendente
+                const windVec = new THREE.Vector3(forceX * 3.5, forceY * 5.0, forceZ * 3.5);
 
                 if (spManager.joints) {
                   spManager.joints.forEach((joint) => {
@@ -696,6 +733,34 @@ export default function CanvasViewer({
     };
   }, []);
 
+  // --- CIELO / SKYBOX / ENTORNO 360° ---
+  useEffect(() => {
+    if (!sceneRef.current) return;
+    const scene = sceneRef.current;
+
+    if (!skyboxSrc) {
+      scene.background = null;
+      return;
+    }
+
+    if (skyboxSrc.startsWith('blob:') || skyboxSrc.startsWith('http') || skyboxSrc.startsWith('data:')) {
+      const loader = new THREE.TextureLoader();
+      loader.load(skyboxSrc, (texture) => {
+        texture.mapping = THREE.EquirectangularReflectionMapping;
+        scene.background = texture;
+      });
+      return;
+    }
+
+    if (skyboxSrc === 'day') {
+      scene.background = new THREE.Color('#87CEEB');
+    } else if (skyboxSrc === 'sunset') {
+      scene.background = new THREE.Color('#fd5e53');
+    } else if (skyboxSrc === 'night') {
+      scene.background = new THREE.Color('#0b0e14');
+    }
+  }, [skyboxSrc]);
+
   useEffect(() => {
     const isCulled = !disableFrustumCulling;
 
@@ -822,49 +887,80 @@ export default function CanvasViewer({
     }
   }, [ikEnabled, activeVrmIndex, vrmList]);
 
+  // --- CONTROL DEL GIZMO PARA HUESOS Y PROPS ---
   useEffect(() => {
     if (!transformControlsRef.current) return;
     const tc = transformControlsRef.current;
 
-    if (ikEnabled) {
-      tc.detach();
-      tc.enabled = false;
-      return;
-    }
+    // 1. Modo Posing en Avatar
+    if (gizmoEnabled && selectedBone && !ikEnabled) {
+      const currentAvatar = vrmList[activeVrmIndex];
+      if (currentAvatar?.vrm?.humanoid) {
+        const boneNode = currentAvatar.vrm.humanoid.getNormalizedBoneNode(selectedBone);
+        if (boneNode) {
+          tc.setMode(gizmoMode);
+          tc.attach(boneNode);
+          tc.enabled = true;
 
-    const currentAvatar = vrmList[activeVrmIndex];
-    if (gizmoEnabled && selectedBone && currentAvatar && currentAvatar.vrm && currentAvatar.vrm.humanoid) {
-      const boneNode = currentAvatar.vrm.humanoid.getNormalizedBoneNode(selectedBone);
-      if (boneNode) {
-        tc.setMode(gizmoMode);
-        tc.attach(boneNode);
-        tc.enabled = true;
+          const handleGizmoChange = () => {
+            if (!tc.object || !onBoneOffsetChange) return;
 
-        const handleGizmoChange = () => {
-          if (!tc.object || !onBoneOffsetChange) return;
+            const euler = new THREE.Euler().setFromQuaternion(tc.object.quaternion, 'YXZ');
+            const objPos = tc.object.position;
+            const defPos = currentAvatar.defaultPositions?.[selectedBone] || new THREE.Vector3(0, 0, 0);
 
-          const euler = new THREE.Euler().setFromQuaternion(tc.object.quaternion, 'YXZ');
-          const objPos = tc.object.position;
-          const defPos = currentAvatar.defaultPositions?.[selectedBone] || new THREE.Vector3(0, 0, 0);
+            onBoneOffsetChange(selectedBone, {
+              rx: THREE.MathUtils.radToDeg(euler.x),
+              ry: THREE.MathUtils.radToDeg(euler.y),
+              rz: THREE.MathUtils.radToDeg(euler.z),
+              px: selectedBone === 'hips' ? objPos.x - defPos.x : 0,
+              py: selectedBone === 'hips' ? objPos.y - defPos.y : 0,
+              pz: selectedBone === 'hips' ? objPos.z - defPos.z : 0
+            });
+          };
 
-          onBoneOffsetChange(selectedBone, {
-            rx: THREE.MathUtils.radToDeg(euler.x),
-            ry: THREE.MathUtils.radToDeg(euler.y),
-            rz: THREE.MathUtils.radToDeg(euler.z),
-            px: selectedBone === 'hips' ? objPos.x - defPos.x : 0,
-            py: selectedBone === 'hips' ? objPos.y - defPos.y : 0,
-            pz: selectedBone === 'hips' ? objPos.z - defPos.z : 0
-          });
-        };
-
-        tc.addEventListener('change', handleGizmoChange);
-        return () => tc.removeEventListener('change', handleGizmoChange);
+          tc.addEventListener('change', handleGizmoChange);
+          return () => tc.removeEventListener('change', handleGizmoChange);
+        }
       }
     }
 
+    // 2. Modo Prop / Objeto 3D seleccionado
+    if (selectedPropIndex !== null && propList[selectedPropIndex]?.scene) {
+      const targetScene = propList[selectedPropIndex].scene;
+      tc.setMode(propGizmoMode || 'translate');
+      tc.attach(targetScene);
+      tc.enabled = true;
+
+      const handlePropGizmo = () => {
+        const p = propList[selectedPropIndex];
+        if (p) {
+          p.px = targetScene.position.x;
+          p.py = targetScene.position.y;
+          p.pz = targetScene.position.z;
+          p.scale = targetScene.scale.x;
+        }
+      };
+
+      tc.addEventListener('change', handlePropGizmo);
+      return () => tc.removeEventListener('change', handlePropGizmo);
+    }
+
+    // 3. Desenganchar si no hay nada activo
     tc.detach();
     tc.enabled = false;
-  }, [gizmoEnabled, gizmoMode, selectedBone, activeVrmIndex, vrmList, onBoneOffsetChange, ikEnabled]);
+  }, [
+    gizmoEnabled,
+    gizmoMode,
+    selectedBone,
+    activeVrmIndex,
+    vrmList,
+    selectedPropIndex,
+    propList,
+    propGizmoMode,
+    onBoneOffsetChange,
+    ikEnabled
+  ]);
 
   useEffect(() => {
     if (cameraRef.current && !isCameraLockedToTrack) {
@@ -1028,6 +1124,7 @@ export default function CanvasViewer({
     window.__windFrequency = windFrequency;
     window.__windDirX = windDirX;
     window.__windDirZ = windDirZ;
+    window.__windLift = windLift;
 
     const activeScenes = new Set(vrmList.map((v) => v.vrm?.scene).filter(Boolean));
     const toRemove = [];
@@ -1056,7 +1153,7 @@ export default function CanvasViewer({
         }
       }
     });
-  }, [vrmList, activeVrmIndex, isEditFocusMode, isPlaying, onTimeUpdate, stageList, propList, selectedBone, showBoneNodes, ikEnabled, autoBlink, lookAtCamera, isCameraLockedToTrack, disableFrustumCulling, windEnabled, windStrength, windFrequency, windDirX, windDirZ]);
+  }, [vrmList, activeVrmIndex, isEditFocusMode, isPlaying, onTimeUpdate, stageList, propList, selectedBone, showBoneNodes, ikEnabled, autoBlink, lookAtCamera, isCameraLockedToTrack, disableFrustumCulling, windEnabled, windStrength, windFrequency, windDirX, windDirZ, windLift]);
 
   return (
     <div id="viewport-container" ref={mountRef} style={{ position: 'relative', overflow: 'hidden', width: '100%', height: '100%', backgroundColor: 'transparent' }}>

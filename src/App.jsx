@@ -9,12 +9,14 @@ import StylePanel from './components/UI/StylePanel';
 import CameraPanel from './components/UI/CameraPanel';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { MTLLoader } from 'three/addons/loaders/MTLLoader.js';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
 import { VRMLoaderPlugin } from '@pixiv/three-vrm';
 import { VRMAnimationLoaderPlugin, createVRMAnimationClip } from '@pixiv/three-vrm-animation';
 import { unzipSync } from 'fflate';
 import DonateButton from './components/DonateButton';
 import FullscreenButton from './components/FullscreenButton';
-
 
 const getMMDLoaderClass = async () => {
   if (window.MMDLoader) return window.MMDLoader;
@@ -25,6 +27,7 @@ const getMMDLoaderClass = async () => {
 const loadModelFile = async (file) => {
   const ext = file.name.split('.').pop().toLowerCase();
 
+  // 1. GLB / GLTF
   if (ext === 'glb' || ext === 'gltf') {
     const loader = new GLTFLoader();
     return new Promise((resolve, reject) => {
@@ -32,6 +35,31 @@ const loadModelFile = async (file) => {
     });
   }
 
+  // 2. OBJ Directo
+  if (ext === 'obj') {
+    const loader = new OBJLoader();
+    return new Promise((resolve, reject) => {
+      loader.load(URL.createObjectURL(file), (obj) => resolve(obj), undefined, reject);
+    });
+  }
+
+  // 3. FBX Directo
+  if (ext === 'fbx') {
+    const loader = new FBXLoader();
+    return new Promise((resolve, reject) => {
+      loader.load(
+        URL.createObjectURL(file),
+        (fbx) => {
+          fbx.scale.setScalar(0.01);
+          resolve(fbx);
+        },
+        undefined,
+        reject
+      );
+    });
+  }
+
+  // 4. PMX MMD Directo
   if (ext === 'pmx') {
     const MMDLoader = await getMMDLoaderClass();
     const loader = new MMDLoader();
@@ -61,19 +89,29 @@ const loadModelFile = async (file) => {
     });
   }
 
+  // 5. ZIP (Detecta FBX, OBJ+MTL o PMX con todas sus texturas)
   if (ext === 'zip') {
     const buffer = await file.arrayBuffer();
     const unzipped = unzipSync(new Uint8Array(buffer));
 
-    let pmxFilename = null;
-    let pmxData = null;
+    let mainFile = null;
+    let mainType = null;
+    let mtlFile = null;
     const blobUrls = new Map();
 
     for (const [filepath, fileData] of Object.entries(unzipped)) {
       const lower = filepath.toLowerCase();
-      if (lower.endsWith('.pmx') && !pmxFilename) {
-        pmxFilename = filepath;
-        pmxData = fileData;
+      if (lower.endsWith('.pmx') && !mainFile) {
+        mainFile = { path: filepath, data: fileData };
+        mainType = 'pmx';
+      } else if (lower.endsWith('.fbx') && !mainFile) {
+        mainFile = { path: filepath, data: fileData };
+        mainType = 'fbx';
+      } else if (lower.endsWith('.obj') && !mainFile) {
+        mainFile = { path: filepath, data: fileData };
+        mainType = 'obj';
+      } else if (lower.endsWith('.mtl')) {
+        mtlFile = { path: filepath, data: fileData };
       }
 
       let mime = 'application/octet-stream';
@@ -92,8 +130,8 @@ const loadModelFile = async (file) => {
       blobUrls.set(filepath.split('/').pop().toLowerCase(), url);
     }
 
-    if (!pmxFilename || !pmxData) {
-      throw new Error('No se encontró ningún archivo .pmx dentro del archivo ZIP.');
+    if (!mainFile) {
+      throw new Error('No se encontró ningún modelo compatible (.pmx, .fbx, .obj) en el ZIP.');
     }
 
     const manager = new THREE.LoadingManager();
@@ -103,35 +141,82 @@ const loadModelFile = async (file) => {
       return blobUrls.get(cleanName) || blobUrls.get(lowerClean) || url;
     });
 
-    const MMDLoader = await getMMDLoaderClass();
-    const loader = new MMDLoader(manager);
-    const pmxBlob = new Blob([pmxData], { type: 'application/octet-stream' });
-    const pmxObjectUrl = URL.createObjectURL(pmxBlob);
+    // ZIP FBX
+    if (mainType === 'fbx') {
+      const loader = new FBXLoader(manager);
+      const blobUrl = URL.createObjectURL(new Blob([mainFile.data]));
+      return new Promise((resolve, reject) => {
+        loader.load(
+          blobUrl,
+          (fbx) => {
+            fbx.scale.setScalar(0.01);
+            resolve(fbx);
+          },
+          undefined,
+          reject
+        );
+      });
+    }
 
-    return new Promise((resolve, reject) => {
-      loader.load(
-        pmxObjectUrl,
-        (mesh) => {
-          mesh.scale.setScalar(0.08);
-          mesh.traverse((child) => {
-            if (child.isMesh) {
-              child.castShadow = true;
-              child.receiveShadow = true;
-              if (child.material) {
-                const mats = Array.isArray(child.material) ? child.material : [child.material];
-                mats.forEach((m) => {
-                  m.side = THREE.DoubleSide;
-                  m.needsUpdate = true;
-                });
+    // ZIP OBJ + MTL
+    if (mainType === 'obj') {
+      const objBlobUrl = URL.createObjectURL(new Blob([mainFile.data]));
+      if (mtlFile) {
+        const mtlLoader = new MTLLoader(manager);
+        const mtlBlobUrl = URL.createObjectURL(new Blob([mtlFile.data]));
+        return new Promise((resolve, reject) => {
+          mtlLoader.load(
+            mtlBlobUrl,
+            (materials) => {
+              materials.preload();
+              const objLoader = new OBJLoader(manager);
+              objLoader.setMaterials(materials);
+              objLoader.load(objBlobUrl, (obj) => resolve(obj), undefined, reject);
+            },
+            undefined,
+            reject
+          );
+        });
+      } else {
+        const objLoader = new OBJLoader(manager);
+        return new Promise((resolve, reject) => {
+          objLoader.load(objBlobUrl, (obj) => resolve(obj), undefined, reject);
+        });
+      }
+    }
+
+    // ZIP PMX
+    if (mainType === 'pmx') {
+      const MMDLoader = await getMMDLoaderClass();
+      const loader = new MMDLoader(manager);
+      const pmxBlob = new Blob([mainFile.data], { type: 'application/octet-stream' });
+      const pmxObjectUrl = URL.createObjectURL(pmxBlob);
+
+      return new Promise((resolve, reject) => {
+        loader.load(
+          pmxObjectUrl,
+          (mesh) => {
+            mesh.scale.setScalar(0.08);
+            mesh.traverse((child) => {
+              if (child.isMesh) {
+                child.castShadow = true;
+                child.receiveShadow = true;
+                if (child.material) {
+                  const mats = Array.isArray(child.material) ? child.material : [child.material];
+                  mats.forEach((m) => {
+                    m.side = THREE.DoubleSide;
+                    m.needsUpdate = true;
+                  });
+                }
               }
-            }
-          });
-          resolve(mesh);
-        },
-        undefined,
-        reject
-      );
-    });
+            });
+            resolve(mesh);
+          },
+          undefined,
+          reject
+        );
+      });
+    }
   }
 
   throw new Error('Formato de archivo no compatible');
@@ -139,7 +224,9 @@ const loadModelFile = async (file) => {
 
 export default function App() {
 
-const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
+const [skyboxSrc, setSkyboxSrc] = useState(null);
+
+  const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
   const [activeTab, setActiveTab] = useState('posing');
   const [vrmList, setVrmList] = useState([]);
   const [activeVrmIndex, setActiveVrmIndex] = useState(0);
@@ -157,6 +244,8 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
 
   const [stageList, setStageList] = useState([]);
   const [propList, setPropList] = useState([]);
+  const [selectedPropIndex, setSelectedPropIndex] = useState(null);
+  const [propGizmoMode, setPropGizmoMode] = useState('translate');
 
   const [fov, setFov] = useState(45);
   const [cameraTargetPreset, setCameraTargetPreset] = useState(null);
@@ -177,6 +266,8 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
   const [windFrequency, setWindFrequency] = useState(4.5);
   const [windDirX, setWindDirX] = useState(0.4);
   const [windDirZ, setWindDirZ] = useState(0.0);
+
+  const [windLift, setWindLift] = useState(0.5);
 
   const [cameraClip, setCameraClip] = useState(null);
   const [isCameraLockedToTrack, setIsCameraLockedToTrack] = useState(false);
@@ -377,7 +468,6 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
     e.target.value = '';
   };
 
-  // 💃 Poses rápidas para PosingPanel
   const handleApplyVrmaPoseSample = (vrmaUrl, targetTime = 1.0) => {
     const currentAvatar = vrmList[activeVrmIndex];
     if (!currentAvatar || !currentAvatar.vrm) {
@@ -447,7 +537,6 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
     );
   };
 
-  // 🎬 Carga oficial estándar de animación VRMA (Pixiv VRMAnimation)
   const handlePlayVrmaAnimation = (vrmaUrl) => {
     const currentAvatar = vrmList[activeVrmIndex];
     if (!currentAvatar || !currentAvatar.vrm) {
@@ -475,7 +564,6 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
           return;
         }
 
-        // Limpieza de rotaciones manuales para evitar deformaciones
         currentAvatar.vrm.humanoid.resetNormalizedPose();
         currentAvatar.offsets = {};
 
@@ -536,7 +624,7 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
       const sceneMesh = await loadModelFile(file);
       setStageList((prev) => [...prev, { name: file.name, scene: sceneMesh }]);
     } catch (err) {
-      alert('No se pudo cargar el archivo: ' + err.message);
+      alert('No se pudo cargar el escenario: ' + err.message);
     }
   };
 
@@ -610,8 +698,6 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
 
   return (
     <div id="app-container" style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden' }}>
-
-
       <FullscreenButton />
 
       <button
@@ -653,15 +739,10 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
             <button className={`tab-btn ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')}>✏️ VRMA</button>
           </div>
 
-
-          
-           <div className="top-bar-buttons">
-            
-             <button>Guardar en App</button>
-             <DonateButton />
-           </div>
-          
-          
+          <div className="top-bar-buttons">
+            <button>Guardar en App</button>
+            <DonateButton />
+          </div>
 
           {activeTab === 'posing' && (
             <PosingPanel
@@ -706,21 +787,18 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
             />
           )}
 
-       {activeTab === 'dialogue' && (
-         <DialoguePanel 
-           vrmList={vrmList} 
-           activeVrmIndex={activeVrmIndex} 
-           playlist={dialoguePlaylist}
-           setPlaylist={setDialoguePlaylist}
-           onSpeakerChange={(speakerIdx) => {
-             setActiveVrmIndex(speakerIdx);
-             setCameraTargetPreset({ type: 'face', targetIndex: speakerIdx, id: Date.now() });
-           }}   
-         />
-       )}
-
-
-
+          {activeTab === 'dialogue' && (
+            <DialoguePanel
+              vrmList={vrmList}
+              activeVrmIndex={activeVrmIndex}
+              playlist={dialoguePlaylist}
+              setPlaylist={setDialoguePlaylist}
+              onSpeakerChange={(speakerIdx) => {
+                setActiveVrmIndex(speakerIdx);
+                setCameraTargetPreset({ type: 'face', targetIndex: speakerIdx, id: Date.now() });
+              }}
+            />
+          )}
 
           {activeTab === 'anim' && (
             <ScenePanel
@@ -730,6 +808,8 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
               windFrequency={windFrequency} setWindFrequency={setWindFrequency}
               windDirX={windDirX} setWindDirX={setWindDirX}
               windDirZ={windDirZ} setWindDirZ={setWindDirZ}
+              windLift={windLift} setWindLift={setWindLift}
+              
               lightIntensity={lightIntensity} setLightIntensity={setLightIntensity}
               dirX={dirX} setDirX={setDirX} dirY={dirY} setDirY={setDirY}
               showGrid={showGrid} setShowGrid={setShowGrid}
@@ -738,7 +818,10 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
               videoScale={videoScale} setVideoScale={setVideoScale}
               stageList={stageList} handleStageUpload={handleStageUpload} handleDeleteStage={handleDeleteStage}
               propList={propList} handlePropUpload={handlePropUpload} handleDeleteProp={handleDeleteProp} handlePropTransformChange={handlePropTransformChange}
-            />
+              selectedPropIndex={selectedPropIndex} setSelectedPropIndex={setSelectedPropIndex}
+              propGizmoMode={propGizmoMode} setPropGizmoMode={setPropGizmoMode}
+           skyboxSrc={skyboxSrc}
+           setSkyboxSrc={setSkyboxSrc}       />
           )}
 
           {activeTab === 'style' && (
@@ -773,6 +856,7 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
         bgVideoSrc={bgVideoSrc} videoScale={videoScale} isPlaying={isPlaying}
         onTimeUpdate={(time) => setCurrentTime(time)} fov={fov} cameraTargetPreset={cameraTargetPreset}
         stageList={stageList} propList={propList}
+        selectedPropIndex={selectedPropIndex} setSelectedPropIndex={setSelectedPropIndex} propGizmoMode={propGizmoMode}
         toonIntensity={toonIntensity} shadeColor={shadeColor} outlineEnabled={outlineEnabled}
         outlineWidth={outlineWidth} outlineColor={outlineColor} rimIntensity={rimIntensity}
         selectedBone={selectedBone} setSelectedBone={setSelectedBone} gizmoEnabled={gizmoEnabled} gizmoMode={gizmoMode}
@@ -781,7 +865,10 @@ const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
         cameraClip={cameraClip} isCameraLockedToTrack={isCameraLockedToTrack}
         windEnabled={windEnabled} windStrength={windStrength} windFrequency={windFrequency}
         windDirX={windDirX} windDirZ={windDirZ}
+        windLift={windLift}
+        
         particleEffect={particleEffect}
+        skyboxSrc={skyboxSrc}
       />
     </div>
   );

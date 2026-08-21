@@ -15,35 +15,49 @@ export default function ScenePanel({
   setBgVideoSrc,
   videoScale,
   setVideoScale,
+  skyboxSrc,
+  setSkyboxSrc,
   stageList = [],
   handleStageUpload,
   handleDeleteStage,
   propList = [],
   handlePropUpload,
   handleDeleteProp,
-  handlePropTransformChange
+  handlePropTransformChange,
+  selectedPropIndex = null,
+  setSelectedPropIndex,
+  propGizmoMode = 'translate',
+  setPropGizmoMode,
+  // --- Estados de viento globales que vienen de App.jsx ---
+  windEnabled = false,
+  setWindEnabled,
+  windStrength = 1.0,
+  setWindStrength,
+  windFrequency = 4.5,
+  setWindFrequency,
+  windDirX = 0.4,
+  setWindDirX,
+  windDirZ = 0.0,
+  setWindDirZ,
+  windLift = 0.5,
+  setWindLift
 }) {
-  const [windEnabled, setWindEnabled] = useState(false);
-  const [windStrength, setWindStrength] = useState(0.5);
-  const [windDirX, setWindDirX] = useState(1.0);
-  const [windDirZ, setWindDirZ] = useState(0.0);
-  const [windSpeed, setWindSpeed] = useState(2.0);
-
   // Estados de Partículas Estilo MMD
   const [particleType, setParticleType] = useState('none');
   const [particleDensity, setParticleDensity] = useState(150);
 
-  const updateWindGlobals = (enabled, strength, x, z, speed) => {
+  const updateWindGlobals = (enabled, strength, x, z, freq, lift) => {
     window.__windEnabled = enabled;
     window.__windStrength = strength;
     window.__windDirX = x;
     window.__windDirZ = z;
-    window.__windSpeed = speed;
+    window.__windSpeed = freq;
+    window.__windLift = lift;
   };
 
   const handleWindToggle = (checked) => {
-    setWindEnabled(checked);
-    updateWindGlobals(checked, windStrength, windDirX, windDirZ, windSpeed);
+    if (setWindEnabled) setWindEnabled(checked);
+    updateWindGlobals(checked, windStrength, windDirX, windDirZ, windFrequency, windLift);
   };
 
   const handleParticleTypeChange = (type) => {
@@ -108,7 +122,7 @@ export default function ScenePanel({
         )}
       </div>
 
-      {/* 🌬️ Física de Viento */}
+      {/* 🌬️ Física de Viento (Persistente al ocultar menú) */}
       <div className="section-box">
         <div className="section-title">🌬️ Viento y Física</div>
         
@@ -128,30 +142,47 @@ export default function ScenePanel({
               <input
                 type="range"
                 min="0.0"
-                max="2.0"
+                max="10.0"
                 step="0.05"
                 value={windStrength}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  setWindStrength(val);
-                  updateWindGlobals(true, val, windDirX, windDirZ, windSpeed);
+                  if (setWindStrength) setWindStrength(val);
+                  updateWindGlobals(true, val, windDirX, windDirZ, windFrequency, windLift);
                 }}
                 style={{ width: '100%', accentColor: '#7aa2f7' }}
               />
             </div>
 
-            <label style={{ fontSize: '12px' }}>Frecuencia / Ráfaga: ({windSpeed.toFixed(1)}x)</label>
+            <label style={{ fontSize: '12px' }}>Viento Vertical / Elevación: ({(windLift || 0).toFixed(2)})</label>
+            <div style={{ width: '50%', margin: '4px 0 10px 0' }}>
+              <input
+                type="range"
+                min="0.0"
+                max="3.0"
+                step="0.05"
+                value={windLift}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value);
+                  if (setWindLift) setWindLift(val);
+                  updateWindGlobals(true, windStrength, windDirX, windDirZ, windFrequency, val);
+                }}
+                style={{ width: '100%', accentColor: '#7aa2f7' }}
+              />
+            </div>
+
+            <label style={{ fontSize: '12px' }}>Frecuencia / Ráfaga: ({windFrequency.toFixed(1)}x)</label>
             <div style={{ width: '50%', margin: '4px 0 10px 0' }}>
               <input
                 type="range"
                 min="0.5"
                 max="6.0"
                 step="0.5"
-                value={windSpeed}
+                value={windFrequency}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  setWindSpeed(val);
-                  updateWindGlobals(true, windStrength, windDirX, windDirZ, val);
+                  if (setWindFrequency) setWindFrequency(val);
+                  updateWindGlobals(true, windStrength, windDirX, windDirZ, val, windLift);
                 }}
                 style={{ width: '100%', accentColor: '#7aa2f7' }}
               />
@@ -167,8 +198,8 @@ export default function ScenePanel({
                 value={windDirX}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  setWindDirX(val);
-                  updateWindGlobals(true, windStrength, val, windDirZ, windSpeed);
+                  if (setWindDirX) setWindDirX(val);
+                  updateWindGlobals(true, windStrength, val, windDirZ, windFrequency, windLift);
                 }}
                 style={{ width: '100%', accentColor: '#7aa2f7' }}
               />
@@ -184,14 +215,59 @@ export default function ScenePanel({
                 value={windDirZ}
                 onChange={(e) => {
                   const val = parseFloat(e.target.value);
-                  setWindDirZ(val);
-                  updateWindGlobals(true, windStrength, windDirX, val, windSpeed);
+                  if (setWindDirZ) setWindDirZ(val);
+                  updateWindGlobals(true, windStrength, windDirX, val, windFrequency, windLift);
                 }}
                 style={{ width: '100%', accentColor: '#7aa2f7' }}
               />
             </div>
           </div>
         )}
+      </div>
+
+      {/* 🌌 Cielo / Skybox 360° */}
+      <div className="section-box">
+        <div className="section-title">🌌 Cielo 360° (Skybox)</div>
+        <label style={{ fontSize: '11px' }}>Cargar Imagen Panorámica (.jpg, .png):</label>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file && setSkyboxSrc) setSkyboxSrc(URL.createObjectURL(file));
+          }}
+        />
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', marginTop: '8px' }}>
+          <button 
+            className="tab-btn" 
+            style={{ fontSize: '11px' }}
+            onClick={() => setSkyboxSrc && setSkyboxSrc('day')}
+          >
+            ☀️ Día Anime
+          </button>
+          <button 
+            className="tab-btn" 
+            style={{ fontSize: '11px' }}
+            onClick={() => setSkyboxSrc && setSkyboxSrc('sunset')}
+          >
+            🌅 Atardecer
+          </button>
+          <button 
+            className="tab-btn" 
+            style={{ fontSize: '11px' }}
+            onClick={() => setSkyboxSrc && setSkyboxSrc('night')}
+          >
+            🌙 Noche Estrellada
+          </button>
+          <button 
+            className="tab-btn" 
+            style={{ fontSize: '11px', backgroundColor: '#f7768e', color: '#fff' }}
+            onClick={() => setSkyboxSrc && setSkyboxSrc(null)}
+          >
+            🚫 Sin Cielo
+          </button>
+        </div>
       </div>
 
       {/* 🎞️ Video de Fondo */}
@@ -222,7 +298,7 @@ export default function ScenePanel({
         )}
       </div>
 
-      {/* 💡 Iluminación y Rendimiento */}
+      {/* 💡 Iluminación y Visualización */}
       <div className="section-box">
         <div className="section-title">💡 Iluminación y Visualización</div>
         
@@ -258,20 +334,21 @@ export default function ScenePanel({
         </label>
       </div>
 
-      {/* 🏞️ Escenarios y Props */}
+      {/* 🏞️ Escenarios y Props Multiformato */}
       <div className="section-box">
-        <div className="section-title">🏞️ Escenario / Props (.glb, .pmx, .zip)</div>
-        <label>Cargar Escenario (.glb, .pmx, .zip):</label>
+        <div className="section-title">🏞️ Escenario / Props (.glb, .obj, .fbx, .pmx, .zip)</div>
+        
+        <label>Cargar Escenario (.glb, .obj, .fbx, .pmx, .zip):</label>
         <input
           type="file"
-          accept=".glb,.gltf,.pmx,.zip"
+          accept=".glb,.gltf,.obj,.fbx,.pmx,.zip"
           onChange={handleStageUpload}
         />
 
         {stageList.length > 0 && (
-          <div style={{ marginTop: '8px' }}>
+          <div style={{ marginTop: '8px', marginBottom: '12px' }}>
             {stageList.map((stg, idx) => (
-              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1b26', padding: '6px 8px', borderRadius: '4px', marginBottom: '4px' }}>
+              <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#1a1b26', padding: '6px 8px', borderRadius: '4px', marginBottom: '4px', border: '1px solid #2f354a' }}>
                 <span style={{ fontSize: '12px', color: '#c0caf5' }}>🏛️ {stg.name}</span>
                 <button onClick={() => handleDeleteStage(idx)} style={{ background: 'transparent', border: 'none', color: '#f7768e', cursor: 'pointer' }}>❌</button>
               </div>
@@ -279,35 +356,99 @@ export default function ScenePanel({
           </div>
         )}
 
-        <label style={{ marginTop: '10px' }}>Cargar Accesorio / Prop (.glb, .pmx, .zip):</label>
+        <label style={{ marginTop: '10px' }}>Cargar Accesorio / Prop (.glb, .obj, .fbx, .pmx, .zip):</label>
         <input
           type="file"
-          accept=".glb,.gltf,.pmx,.zip"
+          accept=".glb,.gltf,.obj,.fbx,.pmx,.zip"
           onChange={handlePropUpload}
         />
 
-        {propList.map((prop, idx) => (
-          <div key={idx} style={{ background: '#13141f', padding: '8px', borderRadius: '6px', marginTop: '6px', border: '1px solid #282a36' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span style={{ fontSize: '12px', color: '#7aa2f7' }}>📦 {prop.name}</span>
-              <button onClick={() => handleDeleteProp(idx)} style={{ background: 'transparent', border: 'none', color: '#f7768e', cursor: 'pointer' }}>❌</button>
+        {/* 🕹️ Barra de herramientas del Gizmo para Prop */}
+        {selectedPropIndex !== null && propList[selectedPropIndex] && (
+          <div style={{ marginTop: '10px', background: '#13141f', padding: '8px', borderRadius: '6px', border: '1px solid #414868' }}>
+            <div style={{ fontSize: '11px', color: '#bb9af7', fontWeight: 'bold', marginBottom: '6px' }}>
+              🕹️ Modo Transformar: <span style={{ color: '#7dcfff' }}>{propList[selectedPropIndex].name}</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '11px' }}>
-              <div>
-                X: <input type="number" step="0.1" value={prop.px} onChange={(e) => handlePropTransformChange(idx, 'px', e.target.value)} style={{ width: '100%', padding: '2px' }} />
-              </div>
-              <div>
-                Y: <input type="number" step="0.1" value={prop.py} onChange={(e) => handlePropTransformChange(idx, 'py', e.target.value)} style={{ width: '100%', padding: '2px' }} />
-              </div>
-              <div>
-                Z: <input type="number" step="0.1" value={prop.pz} onChange={(e) => handlePropTransformChange(idx, 'pz', e.target.value)} style={{ width: '100%', padding: '2px' }} />
-              </div>
-              <div>
-                Escala: <input type="number" step="0.1" value={prop.scale} onChange={(e) => handlePropTransformChange(idx, 'scale', e.target.value)} style={{ width: '100%', padding: '2px' }} />
-              </div>
+            <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
+              <button
+                className="tab-btn"
+                style={{ flex: 1, padding: '4px', fontSize: '11px', background: propGizmoMode === 'translate' ? '#7aa2f7' : '#1a1b26', color: propGizmoMode === 'translate' ? '#1a1b26' : '#c0caf5', fontWeight: 'bold' }}
+                onClick={() => setPropGizmoMode && setPropGizmoMode('translate')}
+              >
+                Mover
+              </button>
+              <button
+                className="tab-btn"
+                style={{ flex: 1, padding: '4px', fontSize: '11px', background: propGizmoMode === 'rotate' ? '#7aa2f7' : '#1a1b26', color: propGizmoMode === 'rotate' ? '#1a1b26' : '#c0caf5', fontWeight: 'bold' }}
+                onClick={() => setPropGizmoMode && setPropGizmoMode('rotate')}
+              >
+                Rotar
+              </button>
+              <button
+                className="tab-btn"
+                style={{ flex: 1, padding: '4px', fontSize: '11px', background: propGizmoMode === 'scale' ? '#7aa2f7' : '#1a1b26', color: propGizmoMode === 'scale' ? '#1a1b26' : '#c0caf5', fontWeight: 'bold' }}
+                onClick={() => setPropGizmoMode && setPropGizmoMode('scale')}
+              >
+                Escalar
+              </button>
             </div>
+            <button
+              style={{ width: '100%', padding: '4px', fontSize: '10px', background: '#2f354a', color: '#a9b1d6', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              onClick={() => setSelectedPropIndex && setSelectedPropIndex(null)}
+            >
+              Soltar Selección (Desactivar Gizmo)
+            </button>
           </div>
-        ))}
+        )}
+
+        {/* 📦 Lista de Props */}
+        <div style={{ maxHeight: '180px', overflowY: 'auto', marginTop: '8px' }}>
+          {propList.map((prop, idx) => (
+            <div
+              key={idx}
+              style={{
+                background: selectedPropIndex === idx ? '#24283b' : '#13141f',
+                border: selectedPropIndex === idx ? '1px solid #7aa2f7' : '1px solid #282a36',
+                padding: '8px',
+                borderRadius: '6px',
+                marginTop: '6px'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span
+                  style={{ fontSize: '12px', color: selectedPropIndex === idx ? '#7dcfff' : '#7aa2f7', fontWeight: 'bold', cursor: 'pointer' }}
+                  onClick={() => setSelectedPropIndex && setSelectedPropIndex(selectedPropIndex === idx ? null : idx)}
+                >
+                  {selectedPropIndex === idx ? '🎯' : '📦'} {prop.name}
+                </span>
+                <button
+                  onClick={() => {
+                    if (selectedPropIndex === idx && setSelectedPropIndex) setSelectedPropIndex(null);
+                    handleDeleteProp(idx);
+                  }}
+                  style={{ background: 'transparent', border: 'none', color: '#f7768e', cursor: 'pointer' }}
+                >
+                  ❌
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '4px', fontSize: '11px' }}>
+                <div>
+                  X: <input type="number" step="0.1" value={prop.px} onChange={(e) => handlePropTransformChange(idx, 'px', e.target.value)} style={{ width: '100%', padding: '2px', fontSize: '10px' }} />
+                </div>
+                <div>
+                  Y: <input type="number" step="0.1" value={prop.py} onChange={(e) => handlePropTransformChange(idx, 'py', e.target.value)} style={{ width: '100%', padding: '2px', fontSize: '10px' }} />
+                </div>
+                <div>
+                  Z: <input type="number" step="0.1" value={prop.pz} onChange={(e) => handlePropTransformChange(idx, 'pz', e.target.value)} style={{ width: '100%', padding: '2px', fontSize: '10px' }} />
+                </div>
+                <div>
+                  Escala: <input type="number" step="0.1" value={prop.scale} onChange={(e) => handlePropTransformChange(idx, 'scale', e.target.value)} style={{ width: '100%', padding: '2px', fontSize: '10px' }} />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
