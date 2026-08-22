@@ -253,7 +253,7 @@ export default function PosingPanel({
                         await loadSavedList();
                       }
                     }}
-                    style={{ background: 'transparent', border: '1px solid red', color: '#f7768e', cursor: 'pointer', fontSize: '15px',width:'30px' }}
+                    style={{ background: 'transparent', border: '1px solid red', color: '#f7768e', cursor: 'pointer', fontSize: '15px',width:'50px' }}
                   >
                     ❌
                   </button>
@@ -397,7 +397,7 @@ export default function PosingPanel({
                   <span style={{ fontSize: '12px', color: '#c0caf5' }}>💃 {pose.name} ({pose.boneCount} huesos)</span>
                   <button
                     onClick={(e) => handleDeleteSavedPose(pose.name, e)}
-                    style={{ background: 'transparent', border: 'none', color: '#f7768e', cursor: 'pointer', fontSize: '14px' }}
+                    style={{ background: 'transparent', border: 'solid red 2px', color: '#f7768e', cursor: 'pointer', fontSize: '14px', width: '20px' }}
                   >
                     ❌
                   </button>

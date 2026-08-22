@@ -48,7 +48,7 @@ export default function VrmaPanel({
   return (
     <div className="panel-container">
       <div className="section-card">
-        <h3>🎬 Reproductor y Edición VRMA</h3>
+        <h3 style={{color: 'green' }}>🎬 Reproductor y Edición VRMA</h3>
 
         <p style={{ fontSize: '12px', color: '#a9b1d6', margin: '0 0 12px 0' }}>
           Avatar activo: <strong>{currentAvatar?.name || 'Ninguno'}</strong>

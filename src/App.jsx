@@ -224,6 +224,9 @@ const loadModelFile = async (file) => {
 
 export default function App() {
 
+
+const [cameraSequence, setCameraSequence] = useState([]);
+
 const [skyboxSrc, setSkyboxSrc] = useState(null);
 
   const [dialoguePlaylist, setDialoguePlaylist] = useState([]);
@@ -784,6 +787,7 @@ const [skyboxSrc, setSkyboxSrc] = useState(null);
               cameraFileName={cameraFileName} setCameraFileName={setCameraFileName}
               camScale={camScale} setCamScale={setCamScale} offsetY={offsetY} setOffsetY={setOffsetY}
               offsetZ={offsetZ} setOffsetZ={setOffsetZ} isPlayingCamera={isPlayingCamera} setIsPlayingCamera={setIsPlayingCamera}
+             cameraSequence={cameraSequence} setCameraSequence={setCameraSequence} 
             />
           )}
 

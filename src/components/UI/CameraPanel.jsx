@@ -20,7 +20,10 @@ export default function CameraPanel({
   offsetZ,
   setOffsetZ,
   isPlayingCamera,
-  setIsPlayingCamera
+  setIsPlayingCamera,
+  // --- Secuencia global persistente ---
+  cameraSequence = [],
+  setCameraSequence
 }) {
   const [telemetry, setTelemetry] = useState({ x: 0, y: 1.2, z: 2.5 });
 
@@ -31,14 +34,13 @@ export default function CameraPanel({
   const recordedFramesRef = useRef([]);
   const recordStartTimeRef = useRef(0);
 
-  // Secuencia (Playlist)
-  const [cameraPlaylist, setCameraPlaylist] = useState([]);
+  // Estados de reproducción de secuencia
   const [activeTrackIndex, setActiveTrackIndex] = useState(null);
   const [isSequencePlaying, setIsSequencePlaying] = useState(false);
   const [statusText, setStatusText] = useState('');
-  
-  const sequenceTimeoutRef = useRef(null);
-  const transitionAnimRef = useRef(null);
+
+  const playlist = cameraSequence || [];
+  const setPlaylist = setCameraSequence;
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -51,10 +53,6 @@ export default function CameraPanel({
       }
     }, 50);
     return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    return () => stopSequence();
   }, []);
 
   const createClipFromFrames = (frames, clipName) => {
@@ -162,44 +160,49 @@ export default function CameraPanel({
       return;
     }
 
-    const name = `Toma_${cameraPlaylist.length + 1}`;
+    const name = `Toma_${playlist.length + 1}`;
     const { clip, duration } = createClipFromFrames(frames, name);
 
-    setCameraPlaylist((prev) => [
-      ...prev,
-      {
-        id: Date.now() + Math.random(),
-        name,
-        duration,
-        transitionTime: 1.0, // 1s de interpolación por defecto
-        frames,
-        clip
-      }
-    ]);
+    if (setPlaylist) {
+      setPlaylist((prev) => [
+        ...prev,
+        {
+          id: Date.now() + Math.random(),
+          name,
+          duration,
+          transitionTime: 1.0,
+          frames,
+          clip
+        }
+      ]);
+    }
   };
 
   // --- PLAYLIST & INTERPOLACIÓN ---
   const handleTransitionChange = (id, val) => {
-    setCameraPlaylist((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, transitionTime: Math.max(0, parseFloat(val) || 0) } : item))
-    );
+    if (setPlaylist) {
+      setPlaylist((prev) =>
+        prev.map((item) => (item.id === id ? { ...item, transitionTime: Math.max(0, parseFloat(val) || 0) } : item))
+      );
+    }
   };
 
   const handleRemoveTrack = (id) => {
-    setCameraPlaylist((prev) => prev.filter((item) => item.id !== id));
+    if (setPlaylist) {
+      setPlaylist((prev) => prev.filter((item) => item.id !== id));
+    }
   };
 
   const handleMoveTrack = (index, direction) => {
     const newIndex = index + direction;
-    if (newIndex < 0 || newIndex >= cameraPlaylist.length) return;
-    const updated = [...cameraPlaylist];
+    if (newIndex < 0 || newIndex >= playlist.length) return;
+    const updated = [...playlist];
     const temp = updated[index];
     updated[index] = updated[newIndex];
     updated[newIndex] = temp;
-    setCameraPlaylist(updated);
+    if (setPlaylist) setPlaylist(updated);
   };
 
-  // Función suave de transición (Lerp/Slerp)
   const interpolateCameraTransition = (targetFrame, transitionSec, onComplete) => {
     const cam = window.__currentCamera;
     if (!cam || transitionSec <= 0) {
@@ -226,30 +229,30 @@ export default function CameraPanel({
       const elapsed = performance.now() - startTime;
       const progress = Math.min(1.0, elapsed / durationMs);
 
-      // Smooth step easing
       const ease = progress * progress * (3 - 2 * progress);
 
       cam.position.lerpVectors(startPos, endPos, ease);
       cam.quaternion.slerpQuaternions(startRot, endRot, ease);
 
       if (progress < 1.0) {
-        transitionAnimRef.current = requestAnimationFrame(step);
+        window.__transitionAnim = requestAnimationFrame(step);
       } else {
         onComplete();
       }
     };
 
-    transitionAnimRef.current = requestAnimationFrame(step);
+    if (window.__transitionAnim) cancelAnimationFrame(window.__transitionAnim);
+    window.__transitionAnim = requestAnimationFrame(step);
   };
 
   const playCameraSequenceStep = (index) => {
-    if (index >= cameraPlaylist.length) {
+    if (index >= playlist.length) {
       stopSequence();
       setStatusText('Secuencia completada');
       return;
     }
 
-    const item = cameraPlaylist[index];
+    const item = playlist[index];
     setActiveTrackIndex(index);
 
     const firstFrame = item.frames[0];
@@ -270,32 +273,33 @@ export default function CameraPanel({
       setIsPlayingCamera(true);
       window.__isPlayingCamera = true;
 
-      sequenceTimeoutRef.current = setTimeout(() => {
+      if (window.__sequenceTimeout) clearTimeout(window.__sequenceTimeout);
+      window.__sequenceTimeout = setTimeout(() => {
         playCameraSequenceStep(index + 1);
       }, item.duration * 1000);
     });
   };
 
   const handlePlaySequence = () => {
-    if (cameraPlaylist.length === 0) return;
+    if (playlist.length === 0) return;
     stopSequence();
     setIsSequencePlaying(true);
     playCameraSequenceStep(0);
   };
 
   const stopSequence = () => {
-    if (sequenceTimeoutRef.current) clearTimeout(sequenceTimeoutRef.current);
-    if (transitionAnimRef.current) cancelAnimationFrame(transitionAnimRef.current);
+    if (window.__sequenceTimeout) clearTimeout(window.__sequenceTimeout);
+    if (window.__transitionAnim) cancelAnimationFrame(window.__transitionAnim);
     setIsSequencePlaying(false);
     setActiveTrackIndex(null);
     setStatusText('');
   };
 
-  // --- EXPORTAR / IMPORTAR TODO EN UN SOLO JSON ---
+  // --- EXPORTAR / IMPORTAR TODO ---
   const handleExportFullSequence = () => {
-    if (cameraPlaylist.length === 0) return;
+    if (playlist.length === 0) return;
 
-    const exportData = cameraPlaylist.map((item) => ({
+    const exportData = playlist.map((item) => ({
       name: item.name,
       transitionTime: item.transitionTime ?? 1.0,
       frames: item.frames
@@ -333,7 +337,9 @@ export default function CameraPanel({
           };
         });
 
-        setCameraPlaylist((prev) => [...prev, ...reconstructed]);
+        if (setPlaylist) {
+          setPlaylist((prev) => [...prev, ...reconstructed]);
+        }
       } catch (err) {
         alert('❌ Error al importar archivo de secuencia.');
       }
@@ -423,7 +429,7 @@ export default function CameraPanel({
             className="tab-btn"
             style={{ flex: 1, backgroundColor: '#9ece6a', color: '#1a1b26', fontWeight: 'bold', padding: '6px' }}
             onClick={handlePlaySequence}
-            disabled={cameraPlaylist.length === 0}
+            disabled={playlist.length === 0}
           >
             ▶ Reproducir Secuencia
           </button>
@@ -443,13 +449,13 @@ export default function CameraPanel({
           </div>
         )}
 
-        {cameraPlaylist.length === 0 ? (
+        {playlist.length === 0 ? (
           <div style={{ fontSize: '11px', color: '#565f89', textAlign: 'center', padding: '6px' }}>
             No hay planos grabados ni cargados
           </div>
         ) : (
           <div style={{ maxHeight: '180px', overflowY: 'auto', marginBottom: '8px' }}>
-            {cameraPlaylist.map((item, idx) => (
+            {playlist.map((item, idx) => (
               <div
                 key={item.id}
                 style={{
@@ -504,7 +510,7 @@ export default function CameraPanel({
             className="tab-btn"
             style={{ flex: 1, fontSize: '10px', backgroundColor: '#7aa2f7', padding: '6px' }}
             onClick={handleExportFullSequence}
-            disabled={cameraPlaylist.length === 0}
+            disabled={playlist.length === 0}
           >
             💾 Guardar Todo (.json)
           </button>
