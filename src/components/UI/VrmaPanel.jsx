@@ -1,204 +1,245 @@
+import { useState, useRef, useEffect } from 'react';
+import * as THREE from 'three';
+
 export default function VrmaPanel({
   vrmList = [],
   activeVrmIndex = 0,
-  isPlaying,
+  isPlaying = false,
   setIsPlaying,
-  currentTime,
+  currentTime = 0,
   setCurrentTime,
-  maxDuration,
+  maxDuration = 10,
   setMaxDuration,
   onFreezeFrame,
   vrmaList = [],
   onApplyVrmaPreset
 }) {
-  const currentAvatar = vrmList[activeVrmIndex];
+  const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
+  const [isLooping, setIsLooping] = useState(true);
+  const [trimStart, setTrimStart] = useState(0);
+  const [trimEnd, setTrimEnd] = useState(maxDuration);
+  const fileInputRef = useRef(null);
 
-  const handleCustomVrmaUpload = (e) => {
+  const activeAvatar = vrmList[activeVrmIndex];
+
+  useEffect(() => {
+    setTrimEnd(maxDuration);
+  }, [maxDuration]);
+
+  // Manejo de velocidad de animación
+  const handleSpeedChange = (speed) => {
+    setPlaybackSpeed(speed);
+    if (activeAvatar?.mixer) {
+      activeAvatar.mixer.timeScale = speed;
+    }
+  };
+
+  // Alternar Bucle
+  const handleLoopToggle = () => {
+    const nextLoop = !isLooping;
+    setIsLooping(nextLoop);
+    if (activeAvatar?.mixer && activeAvatar.clip) {
+      const action = activeAvatar.mixer.clipAction(activeAvatar.clip);
+      action.setLoop(nextLoop ? THREE.LoopRepeat : THREE.LoopOnce);
+      action.clampWhenFinished = !nextLoop;
+    }
+  };
+
+  // Carga de archivo .vrma local desde el móvil
+  const handleLocalVrmaUpload = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const blobUrl = URL.createObjectURL(file);
+    const objectUrl = URL.createObjectURL(file);
     if (onApplyVrmaPreset) {
-      onApplyVrmaPreset(blobUrl);
+      onApplyVrmaPreset(objectUrl);
+    }
+    e.target.value = '';
+  };
+
+  // Control manual del Timeline (Scrubbing)
+  const handleSeek = (e) => {
+    const targetTime = parseFloat(e.target.value);
+    setCurrentTime(targetTime);
+    if (activeAvatar?.mixer && activeAvatar.clip) {
+      activeAvatar.mixer.setTime(targetTime);
     }
   };
 
-  const handleTimelineSeek = (time) => {
-    const newTime = parseFloat(time);
-    setCurrentTime(newTime);
-    if (currentAvatar?.mixer) {
-      currentAvatar.mixer.setTime(newTime);
-    }
-  };
-
-  const handleResetPose = () => {
-    if (currentAvatar?.vrm?.humanoid) {
-      currentAvatar.vrm.humanoid.resetNormalizedPose();
-      if (currentAvatar.offsets) {
-        Object.keys(currentAvatar.offsets).forEach((k) => delete currentAvatar.offsets[k]);
+  // Reproducir / Pausar
+  const togglePlayPause = () => {
+    const nextState = !isPlaying;
+    if (setIsPlaying) setIsPlaying(nextState);
+    if (activeAvatar?.mixer && activeAvatar.clip) {
+      const action = activeAvatar.mixer.clipAction(activeAvatar.clip);
+      if (nextState) {
+        action.paused = false;
+        action.play();
+      } else {
+        action.paused = true;
       }
     }
-    if (currentAvatar?.mixer) {
-      currentAvatar.mixer.stopAllAction();
-      currentAvatar.mixer.setTime(0);
+  };
+
+  // Reiniciar
+  const handleResetTime = () => {
+    setCurrentTime(trimStart);
+    if (activeAvatar?.mixer) {
+      activeAvatar.mixer.setTime(trimStart);
     }
-    setCurrentTime(0);
-    setIsPlaying(false);
   };
 
   return (
-    <div className="panel-container">
-      <div className="section-card">
-        <h3 style={{color: 'green' }}>🎬 Reproductor y Edición VRMA</h3>
-
-        <p style={{ fontSize: '12px', color: '#a9b1d6', margin: '0 0 12px 0' }}>
-          Avatar activo: <strong>{currentAvatar?.name || 'Ninguno'}</strong>
-        </p>
-
-        {/* 1. SELECCIÓN O CARGA DE ANIMACIÓN */}
-        <div style={{ marginBottom: '14px' }}>
-          <label style={{ fontSize: '12px', color: '#a9b1d6', display: 'block', marginBottom: '6px' }}>
-            Animación / Pose VRMA:
-          </label>
-          
-          <select
-            onChange={(e) => {
-              if (e.target.value && onApplyVrmaPreset) {
-                onApplyVrmaPreset(e.target.value);
-              }
-            }}
-            defaultValue=""
-            style={{
-              width: '100%',
-              padding: '8px',
-              fontSize: '13px',
-              background: '#1a1b26',
-              color: '#c0caf5',
-              border: '1px solid #414868',
-              borderRadius: '6px',
-              marginBottom: '8px'
-            }}
-          >
-            <option value="" disabled>Seleccionar animación del catálogo...</option>
-            {vrmaList.map((item, idx) => (
-              <option key={idx} value={item.url || item.path || item}>
-                {item.name || `Animación ${idx + 1}`}
-              </option>
-            ))}
-          </select>
-
-          <label
-            style={{
-              width: '100%',
-              boxSizing: 'border-box',
-              background: '#2ac3de',
-              color: '#1a1b26',
-              fontWeight: 'bold',
-              borderRadius: '6px',
-              padding: '8px',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              textAlign: 'center'
-            }}
-          >
-            📂 Subir Archivo .VRMA
-            <input
-              type="file"
-              accept=".vrma,.glb,.gltf"
-              onChange={handleCustomVrmaUpload}
-              style={{ display: 'none' }}
-            />
-          </label>
+    <div className="panel-content" style={{ paddingTop: '8px' }}>
+      <div className="section-box">
+        <div className="section-title">🎬 Reproductor y Edición VRMA</div>
+        
+        <div style={{ fontSize: '12px', color: '#c0caf5', marginBottom: '8px' }}>
+          Avatar activo: <span style={{ color: '#7aa2f7', fontWeight: 'bold' }}>{activeAvatar?.name || 'Ninguno'}</span>
         </div>
 
-        {/* 2. CONTROLES DE REPRODUCCIÓN */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          <button
-            onClick={() => setIsPlaying(!isPlaying)}
-            style={{
-              flex: 1,
-              background: isPlaying ? '#e0af68' : '#9ece6a',
-              color: '#1a1b26',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '10px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            {isPlaying ? '⏸️ Pausar' : '▶️ Reproducir'}
-          </button>
+        {/* Selector de Catálogo */}
+        <label style={{ fontSize: '11px' }}>Animación / Pose del Catálogo:</label>
+        <select
+          style={{ width: '100%', padding: '8px', fontSize: '12px', marginBottom: '8px' }}
+          onChange={(e) => {
+            if (e.target.value && onApplyVrmaPreset) {
+              onApplyVrmaPreset(e.target.value);
+            }
+          }}
+          defaultValue=""
+        >
+          <option value="" disabled>Seleccionar animación del catálogo...</option>
+          {vrmaList.map((item, idx) => (
+            <option key={idx} value={item.url || item.path || item}>
+              {item.name || item.title || `Animación ${idx + 1}`}
+            </option>
+          ))}
+        </select>
 
+        {/* Subir archivo local */}
+        <input
+          type="file"
+          accept=".vrma,.glb,.gltf"
+          ref={fileInputRef}
+          onChange={handleLocalVrmaUpload}
+          style={{ display: 'none' }}
+        />
+        <button
+          className="tab-btn"
+          style={{ width: '100%', background: '#2ac3de', color: '#1a1b26', fontWeight: 'bold', padding: '8px', marginBottom: '10px' }}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          📁 Subir Archivo .VRMA
+        </button>
+
+        {/* Botones de Control Principal */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
           <button
-            onClick={handleResetPose}
-            style={{
-              background: '#414868',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '10px 14px',
-              cursor: 'pointer'
-            }}
-            title="Resetear Pose y Tiempo"
+            className="tab-btn"
+            style={{ flex: 1, background: isPlaying ? '#f7768e' : '#9ece6a', color: '#1a1b26', fontWeight: 'bold', padding: '10px' }}
+            onClick={togglePlayPause}
           >
-            ⏮️
+            {isPlaying ? '⏸ Pausar' : '▶ Reproducir'}
+          </button>
+          <button
+            className="tab-btn"
+            style={{ background: '#bb9af7', color: '#1a1b26', fontWeight: 'bold', padding: '10px 14px' }}
+            onClick={handleResetTime}
+            title="Reiniciar"
+          >
+            ⏮
+          </button>
+          <button
+            className="tab-btn"
+            style={{ background: isLooping ? '#7aa2f7' : '#414868', color: '#fff', fontWeight: 'bold', padding: '10px 14px' }}
+            onClick={handleLoopToggle}
+            title="Repetición"
+          >
+            🔁 {isLooping ? 'On' : 'Off'}
           </button>
         </div>
 
-        {/* 3. LÍNEA DE TIEMPO INTERACTIVA */}
-        <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#c0caf5', marginBottom: '4px' }}>
-            <span>Tiempo: {currentTime.toFixed(2)}s</span>
-            <span>Duración: {maxDuration.toFixed(1)}s</span>
+        {/* Timeline Scrubbing */}
+        <div style={{ background: '#13141f', padding: '10px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #282a36' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#c0caf5', marginBottom: '4px' }}>
+            <span>Tiempo: <b style={{ color: '#7dcfff' }}>{currentTime.toFixed(2)}s</b></span>
+            <span>Duración: <b style={{ color: '#7dcfff' }}>{maxDuration.toFixed(2)}s</b></span>
           </div>
           <input
             type="range"
             min="0"
-            max={maxDuration || 1}
+            max={maxDuration || 10}
             step="0.01"
             value={currentTime}
-            onChange={(e) => handleTimelineSeek(e.target.value)}
-            style={{ width: '100%' }}
+            onChange={handleSeek}
+            style={{ width: '100%', accentColor: '#7aa2f7' }}
           />
         </div>
 
-        {/* 4. CONFIGURACIÓN DE DURACIÓN MÁXIMA */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '12px', color: '#a9b1d6' }}>Max Duración:</span>
-          <input
-            type="number"
-            min="1"
-            max="300"
-            value={maxDuration}
-            onChange={(e) => setMaxDuration(Math.max(1, parseFloat(e.target.value) || 1))}
-            style={{
-              width: '60px',
-              padding: '4px',
-              borderRadius: '4px',
-              border: '1px solid #414868',
-              background: '#1a1b26',
-              color: '#fff'
-            }}
-          />
-          <span style={{ fontSize: '12px', color: '#a9b1d6' }}>seg</span>
+        {/* Selector de Velocidad */}
+        <div style={{ marginBottom: '10px' }}>
+          <div style={{ fontSize: '11px', color: '#bb9af7', fontWeight: 'bold', marginBottom: '4px' }}>
+            ⚡ Velocidad de Reproducción:
+          </div>
+          <div style={{ display: 'flex', gap: '4px' }}>
+            {[0.25, 0.5, 1.0, 1.5, 2.0].map((spd) => (
+              <button
+                key={spd}
+                className="tab-btn"
+                style={{
+                  flex: 1,
+                  padding: '5px 2px',
+                  fontSize: '11px',
+                  background: playbackSpeed === spd ? '#7aa2f7' : '#1a1b26',
+                  color: playbackSpeed === spd ? '#1a1b26' : '#c0caf5',
+                  fontWeight: 'bold'
+                }}
+                onClick={() => handleSpeedChange(spd)}
+              >
+                {spd}x
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* 5. CONGELAR FOTOGRAMA */}
+        {/* Recorte (Trim In / Out) */}
+        <div style={{ background: '#13141f', padding: '8px', borderRadius: '6px', marginBottom: '10px', border: '1px solid #282a36' }}>
+          <div style={{ fontSize: '11px', color: '#e0af68', fontWeight: 'bold', marginBottom: '6px' }}>
+            ✂️ Rango de Reproducción (Trim):
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '11px' }}>
+            <div>
+              Inicio (s):
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                max={trimEnd}
+                value={trimStart}
+                onChange={(e) => setTrimStart(parseFloat(e.target.value) || 0)}
+                style={{ width: '100%', padding: '4px', marginTop: '2px' }}
+              />
+            </div>
+            <div>
+              Fin (s):
+              <input
+                type="number"
+                step="0.1"
+                min={trimStart}
+                max={maxDuration}
+                value={trimEnd}
+                onChange={(e) => setTrimEnd(parseFloat(e.target.value) || maxDuration)}
+                style={{ width: '100%', padding: '4px', marginTop: '2px' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Congelar fotograma */}
         <button
+          className="tab-btn"
+          style={{ width: '100%', background: '#7aa2f7', color: '#1a1b26', fontWeight: 'bold', padding: '10px' }}
           onClick={onFreezeFrame}
-          style={{
-            background: '#7aa2f7',
-            color: '#1a1b26',
-            fontWeight: 'bold',
-            padding: '12px',
-            borderRadius: '6px',
-            border: 'none',
-            cursor: 'pointer',
-            width: '100%',
-            boxShadow: '0 2px 8px rgba(122, 162, 247, 0.3)'
-          }}
         >
           ❄️ Congelar Fotograma como Pose
         </button>

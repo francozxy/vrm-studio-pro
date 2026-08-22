@@ -594,6 +594,9 @@ const [skyboxSrc, setSkyboxSrc] = useState(null);
     );
   };
 
+
+  
+
   const handleBoneOffsetChange = (boneName, newOffset) => {
     setVrmList((prev) =>
       prev.map((vData, idx) => {
